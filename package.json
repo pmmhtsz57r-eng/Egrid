@@ -10,11 +10,13 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "npm run lint:ledger && tsc --noEmit && vite build",
+    "build": "npm run lint:ledger && npm run check:shots && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint:ledger": "node tests/ledger-lint.mjs",
-    "test": "npm run lint:ledger && npm run typecheck"
+    "lint:ledger:strict": "node tests/ledger-lint.mjs --strict",
+    "check:shots": "node tests/shot-table-check.mjs",
+    "test": "node tests/ledger-lint.mjs --self-test && npm run lint:ledger && npm run check:shots && npm run typecheck"
   },
   "dependencies": {
     "three": "0.186.1"
