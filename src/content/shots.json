@@ -1,0 +1,237 @@
+{
+  "about": "The 90-second spine. Durations, captions and camera keys live here so pacing can be tuned without touching code. A shot's camera starts where the previous shot ended. Each key gives a position inside its shot (at: 0 = start, 1 = end), the realm whose coordinates it uses, and the camera position and look-at target in that realm's units. A realm change is written as two keys with the same at: the exit pose in the old realm, then the entry pose in the new one. Module 1 covers each realm change with a short fade; portals replace the fades in Module 2. Every caption cites ledger claims, and ledger-lint checks that.",
+  "shots": [
+    {
+      "id": 1,
+      "label": "Storm",
+      "duration": 4,
+      "move": "Slow push in, storm flicker",
+      "caption": "Every reply runs on electricity.",
+      "claims": ["C01", "C31"],
+      "keys": [
+        { "at": 0, "realm": "R0", "pos": [0, 14, 70], "target": [0, 30, 0] },
+        { "at": 1, "realm": "R0", "pos": [0, 9, 34], "target": [0, 18, 0] }
+      ]
+    },
+    {
+      "id": 2,
+      "label": "Bolt becomes grid",
+      "duration": 4,
+      "move": "Crane up to overhead; the bolt fades, then the power line lights",
+      "caption": "Lightning is electricity untamed. The grid is the tamed kind.",
+      "claims": ["C01", "C02"],
+      "keys": [
+        { "at": 1, "realm": "R0", "pos": [0, 60, 30], "target": [0, 0, -40] }
+      ]
+    },
+    {
+      "id": 3,
+      "label": "Grid ride",
+      "duration": 5,
+      "move": "Swoop down and track an amber pulse from the station along the line",
+      "caption": "Generated far away, carried here at high voltage.",
+      "claims": ["C03"],
+      "keys": [
+        { "at": 0.35, "realm": "R0", "pos": [4, 16, -30], "target": [9, 11, -80] },
+        { "at": 0.7, "realm": "R0", "pos": [16, 14, -110], "target": [7, 11, -165] },
+        { "at": 1, "realm": "R0", "pos": [9.5, 10, -195], "target": [0, 5, -255] }
+      ]
+    },
+    {
+      "id": 4,
+      "label": "Campus doors",
+      "duration": 4,
+      "move": "Descend to the doors, through them into the hall",
+      "caption": "A datacenter is a building designed around power and heat.",
+      "claims": ["C29"],
+      "keys": [
+        { "at": 0.6, "realm": "R0", "pos": [0, 4, -238], "target": [0, 2.5, -255] },
+        { "at": 0.6, "realm": "R1", "pos": [0, 2.4, 30], "target": [0, 1.3, 12] },
+        { "at": 1, "realm": "R1", "pos": [0, 1.7, 23], "target": [0, 1.3, 8] }
+      ]
+    },
+    {
+      "id": 5,
+      "label": "Hall aisle",
+      "duration": 5,
+      "move": "Dolly down the aisle, turn to face one rack",
+      "caption": "Thousands of servers. Nearly all their power ends up as heat.",
+      "claims": ["C29", "C05"],
+      "keys": [
+        { "at": 0.6, "realm": "R1", "pos": [0, 1.6, 9], "target": [0.3, 1.3, 1] },
+        { "at": 1, "realm": "R1", "pos": [-0.3, 1.4, 1.6], "target": [1.2, 1.1, 1.54] }
+      ]
+    },
+    {
+      "id": 6,
+      "label": "Into the rack",
+      "duration": 4,
+      "move": "Push into the rack, arrive above a server tray",
+      "caption": "Inside: accelerators built to multiply and add numbers.",
+      "claims": ["C09"],
+      "keys": [
+        { "at": 0.45, "realm": "R1", "pos": [0.55, 1.15, 1.54], "target": [1.2, 1.1, 1.54] },
+        { "at": 0.45, "realm": "R2", "pos": [0, 30, 60], "target": [0, 0, 0] },
+        { "at": 1, "realm": "R2", "pos": [0, 6, 16], "target": [0, 0.5, 0] }
+      ]
+    },
+    {
+      "id": 7,
+      "label": "Package",
+      "duration": 4,
+      "move": "Push onto the package, arc over it as memory stacks rise",
+      "caption": "Memory is stacked right beside the processor, so data travels less.",
+      "claims": ["C07"],
+      "keys": [
+        { "at": 0.45, "realm": "R2", "pos": [0, 3, 6], "target": [0, 0.6, 0] },
+        { "at": 0.45, "realm": "R3", "pos": [-10, 22, 40], "target": [0, 1, 0] },
+        { "at": 1, "realm": "R3", "pos": [10, 12, 20], "target": [0, 1, 0] }
+      ]
+    },
+    {
+      "id": 8,
+      "label": "Die dive",
+      "duration": 4,
+      "move": "Top-down dive onto the array of compute units",
+      "caption": "Many compute units, working in parallel.",
+      "claims": ["C08"],
+      "keys": [
+        { "at": 0.4, "realm": "R3", "pos": [0, 9, 2], "target": [0, 1.4, 0] },
+        { "at": 0.4, "realm": "R4", "pos": [0, 110, 10], "target": [0, 0, 0] },
+        { "at": 1, "realm": "R4", "pos": [0, 45, 6], "target": [0, 0, 0] }
+      ]
+    },
+    {
+      "id": 9,
+      "label": "Handoff",
+      "duration": 5,
+      "move": "Dive onto one unit, settle face-on as the tile fills with values",
+      "caption": "Zoom in far enough, and the work is arithmetic.",
+      "claims": ["C09"],
+      "keys": [
+        { "at": 0.5, "realm": "R4", "pos": [0, 9, 2.5], "target": [0, 0.8, 0] },
+        { "at": 0.5, "realm": "R5", "pos": [0, 0, 16], "target": [0, 0, 0] },
+        { "at": 1, "realm": "R5", "pos": [0, 0, 6.5], "target": [0, 0, 0] }
+      ]
+    },
+    {
+      "id": 10,
+      "label": "Message to tokens",
+      "duration": 5,
+      "move": "Pull back to reveal the message; it splits into tokens",
+      "caption": "Your message arrives as text. First, it's cut into tokens.",
+      "claims": ["C11"],
+      "keys": [
+        { "at": 0.3, "realm": "R5", "pos": [0, 0, 10], "target": [0, 0, 0] },
+        { "at": 0.3, "realm": "R6", "pos": [0, 1.5, 9], "target": [0, 0.5, 0] },
+        { "at": 1, "realm": "R6", "pos": [0, 2.5, 17], "target": [0, 0.8, 0] }
+      ]
+    },
+    {
+      "id": 11,
+      "label": "Embeddings",
+      "duration": 4,
+      "move": "Lateral glide as a column rises from each token",
+      "caption": "Each token becomes a long list of numbers.",
+      "claims": ["C13"],
+      "keys": [
+        { "at": 1, "realm": "R6", "pos": [-4, 4.5, 13.5], "target": [0, 1.5, 0] }
+      ]
+    },
+    {
+      "id": 12,
+      "label": "Attention",
+      "duration": 8,
+      "move": "Orbit 60 degrees around the row as arcs draw back to earlier tokens",
+      "caption": "Attention: each token looks back, never ahead.",
+      "claims": ["C16"],
+      "keys": [
+        { "at": 0.25, "realm": "R6", "pos": [-0.37, 4.5, 14.08], "target": [1.25, 1.45, 0] },
+        { "at": 0.5, "realm": "R6", "pos": [3.29, 4.5, 13.69], "target": [2.5, 1.4, 0] },
+        { "at": 0.75, "realm": "R6", "pos": [6.72, 4.5, 12.37], "target": [3.75, 1.3, 0] },
+        { "at": 1, "realm": "R6", "pos": [9.69, 4.5, 10.21], "target": [5, 1.2, 0] }
+      ]
+    },
+    {
+      "id": 13,
+      "label": "Layers",
+      "duration": 6,
+      "move": "Rise vertically through the stacked layers",
+      "caption": "The same structure repeats, layer after layer, with new weights.",
+      "claims": ["C30"],
+      "keys": [
+        { "at": 0.35, "realm": "R6", "pos": [4, 10, 14], "target": [0, 9, 0] },
+        { "at": 1, "realm": "R6", "pos": [2, 28, 15], "target": [0, 26, 0] }
+      ]
+    },
+    {
+      "id": 14,
+      "label": "Logits",
+      "duration": 5,
+      "move": "Clear the top of the stack as score bars erupt",
+      "caption": "Out comes a score for every possible next token.",
+      "claims": ["C18"],
+      "keys": [
+        { "at": 1, "realm": "R6", "pos": [9, 35, 10], "target": [0, 30, -1] }
+      ]
+    },
+    {
+      "id": 15,
+      "label": "Softmax",
+      "duration": 5,
+      "move": "Drift in as the bars melt into probabilities",
+      "caption": "Softmax turns scores into probabilities.",
+      "claims": ["C19"],
+      "keys": [
+        { "at": 1, "realm": "R6", "pos": [5, 33.5, 7], "target": [0.5, 30.5, -1] }
+      ]
+    },
+    {
+      "id": 16,
+      "label": "Sample",
+      "duration": 5,
+      "move": "Push in as a weighted wheel spins and stops",
+      "caption": "One is chosen. Just one.",
+      "claims": ["C20"],
+      "keys": [
+        { "at": 1, "realm": "R6", "pos": [1.5, 34, 8.5], "target": [0, 34, 2] }
+      ]
+    },
+    {
+      "id": 17,
+      "label": "Return trip",
+      "duration": 6,
+      "move": "The token rockets back up through every realm, time sped up",
+      "caption": "Then the model runs again for each new token.",
+      "claims": ["C21", "C23"],
+      "keys": [
+        { "at": 0.16, "realm": "R6", "pos": [2, 37, 24], "target": [0, 33, 0] },
+        { "at": 0.16, "realm": "R5", "pos": [0, 0, 5], "target": [0, 0, 0], "fade": 0.16 },
+        { "at": 0.3, "realm": "R5", "pos": [0, 0, 15], "target": [0, 0, 0] },
+        { "at": 0.3, "realm": "R4", "pos": [0, 8, 3], "target": [0, 0, 0], "fade": 0.16 },
+        { "at": 0.44, "realm": "R4", "pos": [0, 75, 9], "target": [0, 0, 0] },
+        { "at": 0.44, "realm": "R3", "pos": [0, 8, 4], "target": [0, 1, 0], "fade": 0.16 },
+        { "at": 0.58, "realm": "R3", "pos": [0, 32, 42], "target": [0, 1, 0] },
+        { "at": 0.58, "realm": "R2", "pos": [0, 4, 8], "target": [0, 0.5, 0], "fade": 0.16 },
+        { "at": 0.72, "realm": "R2", "pos": [0, 32, 72], "target": [0, 0, 0] },
+        { "at": 0.72, "realm": "R1", "pos": [0.45, 1.2, 1.54], "target": [0, 1.2, -6], "fade": 0.16 },
+        { "at": 0.86, "realm": "R1", "pos": [0, 4, 26], "target": [0, 1.2, 10] },
+        { "at": 0.86, "realm": "R0", "pos": [0, 5, -242], "target": [0, 3, -262], "fade": 0.16 },
+        { "at": 1, "realm": "R0", "pos": [0, 40, -170], "target": [0, 8, -262] }
+      ]
+    },
+    {
+      "id": 18,
+      "label": "Reply",
+      "duration": 7,
+      "move": "Words type into the bubble; pull back to the city and the storm",
+      "caption": "One message. Every token, one trip through the machine.",
+      "claims": ["C21"],
+      "keys": [
+        { "at": 0, "realm": "R7", "pos": [0, 0.5, 14], "target": [0, 0.5, 0], "fade": 0.3 },
+        { "at": 0.55, "realm": "R7", "pos": [0, 1.5, 30], "target": [0, 1, 0] },
+        { "at": 1, "realm": "R7", "pos": [0, 7, 75], "target": [0, 5, -30] }
+      ]
+    }
+  ]
+}

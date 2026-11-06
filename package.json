@@ -1,0 +1,29 @@
+{
+  "name": "one-message",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One Message: From Lightning to Language. Module 1: gray-box timeline and camera path for judging 90s pacing.",
+  "type": "module",
+  "packageManager": "npm@10.9.9",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run lint:ledger && npm run check:shots && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint:ledger": "node tests/ledger-lint.mjs",
+    "lint:ledger:strict": "node tests/ledger-lint.mjs --strict",
+    "check:shots": "node tests/shot-table-check.mjs",
+    "test": "node tests/ledger-lint.mjs --self-test && npm run lint:ledger && npm run check:shots && npm run typecheck"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.186.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.5"
+  }
+}
