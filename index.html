@@ -10,10 +10,11 @@
       :root {
         --bg: #05070a;
         --ink: #e6edf3;
-        --ink-quiet: #8b97a5;
+        --ink-quiet: #a7b1bd;
         --cyan: #3fd8ff;
         --amber: #ffb347;
-        --panel: rgba(8, 12, 18, 0.72);
+        /* Opaque enough that text stays at 4.5:1 or better even over a white flash. */
+        --panel: rgba(8, 12, 18, 0.88);
         --edge: rgba(230, 237, 243, 0.14);
         --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -97,6 +98,12 @@
         outline-offset: 2px;
       }
 
+      #playpause:disabled,
+      #scrubber:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
       #scrubber {
         flex: 1;
         min-width: 0;
@@ -133,6 +140,20 @@
       #debug[hidden] {
         display: none;
       }
+      /* When the shot table can't play, its problems go here: wrapped, scrollable and selectable. */
+      #debug.problems {
+        right: 12px;
+        max-height: calc(100% - 180px);
+        overflow: auto;
+        overscroll-behavior: contain;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        color: var(--ink);
+        border-color: var(--amber);
+        pointer-events: auto;
+        user-select: text;
+        -webkit-user-select: text;
+      }
 
       noscript p {
         position: fixed;
@@ -158,17 +179,18 @@
     <div id="hud">
       <p id="caption" aria-live="polite"></p>
       <div id="controls">
-        <button id="playpause" type="button" aria-label="Play" aria-pressed="false">▶</button>
+        <button id="playpause" type="button" aria-label="Play">▶</button>
         <input
           id="scrubber"
           type="range"
           min="0"
           max="90"
-          step="0.01"
+          step="0.1"
           value="0"
           aria-label="Timeline, seconds"
         />
-        <output id="clock" for="scrubber">0:00.0 / 1:30</output>
+        <!-- A timer, not a live region: it changes ten times a second and must not be read out each time. -->
+        <span id="clock" role="timer" aria-live="off">0:00.0 / 1:30</span>
       </div>
     </div>
 
