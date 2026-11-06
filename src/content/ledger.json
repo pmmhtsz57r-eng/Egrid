@@ -1,0 +1,396 @@
+{
+  "about": "The truth ledger: every on-screen claim, its truth tag, and its sources. C01 to C26 are the 26 claims from the approved plan. C27 and C28 come from the approval note (loop counter: real for the hero reply, simulated for typed text). C29, C30 and C31 cover captions that had no claim of their own behind them. A citation carries \"checked\" only once someone opened that exact URL and confirmed it says what \"supports\" paraphrases. ledger-lint fails the build if any claim or explainable has no truth tag or no source.",
+  "updated": "2026-11-06",
+  "labels": {
+    "Real": "Measured, documented, or computed exactly as shown.",
+    "Approximated": "True in kind; shape, scale or detail simplified.",
+    "Simulated": "Produced by our own code to illustrate; not from a real model run. Labeled on screen.",
+    "Metaphor": "A figure of speech or framing device. Labeled on screen."
+  },
+  "claims": [
+    {
+      "id": "C01",
+      "origin": "plan",
+      "claim": "Lightning is an electrical discharge.",
+      "shownIn": ["Shot 1", "Shot 2"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Lightning Science Overview", "publisher": "NOAA National Weather Service", "url": "https://www.weather.gov/safety/lightning-science-overview", "checked": "2026-11-06", "supports": "Defines lightning as a giant spark of electricity in the atmosphere or between the atmosphere and the ground." },
+        { "kind": "citation", "title": "Severe Weather 101: Lightning Basics", "publisher": "NOAA National Severe Storms Laboratory", "url": "https://www.nssl.noaa.gov/education/svrwx101/lightning/", "checked": "2026-11-06", "supports": "When built-up opposite charges overcome the air's insulation, there is a rapid discharge of electricity: lightning." }
+      ],
+      "notes": "Shot 1 shows the bolt; its caption, \"Every reply runs on electricity\", is claim C31. The datacenter runs on grid power, not lightning (see C02)."
+    },
+    {
+      "id": "C02",
+      "origin": "plan",
+      "claim": "Lightning powers the grid.",
+      "shownIn": ["Shot 2"],
+      "label": "Metaphor",
+      "sources": [
+        { "kind": "disclosure", "text": "The caption frames it as a metaphor: \"Lightning is electricity untamed. The grid is the tamed kind.\" Lightning does not power the grid." }
+      ],
+      "notes": "Never show the literal line \"Lightning powers the grid\". No visual may suggest lightning is captured to run the datacenter: in shot 2 the bolt fades out before the line lights, and in shot 3 the pulse starts at a power station, not at the strike."
+    },
+    {
+      "id": "C03",
+      "origin": "plan",
+      "claim": "Electricity travels long distances at high voltage to cut resistive losses.",
+      "shownIn": ["Shot 3"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Electricity explained: How electricity is delivered to consumers", "publisher": "U.S. Energy Information Administration", "url": "https://www.eia.gov/energyexplained/electricity/delivery-to-consumers.php", "checked": "2026-11-06", "supports": "High-voltage lines carry electricity over long distances; higher voltage makes long-distance transmission more efficient and less expensive." },
+        { "kind": "citation", "title": "How It Works: Electric Transmission & Distribution and Protective Measures", "publisher": "U.S. Department of Energy", "year": "2023", "url": "https://www.energy.gov/sites/default/files/2023-11/FINAL_CESER%20Electricity%20Grid%20Backgrounder_508.pdf", "checked": "2026-11-06", "supports": "Transmission networks are built to minimize power loss over long distances by transmitting power at high voltage." },
+        { "kind": "citation", "title": "University Physics Volume 2, 15.6 Transformers", "publisher": "OpenStax (Rice University)", "year": "2016", "url": "https://openstax.org/books/university-physics-volume-2/pages/15-6-transformers", "checked": "2026-11-06", "supports": "At fixed power, higher voltage means lower current, which results in lower ohmic losses in the transmission lines." },
+        { "kind": "citation", "title": "How much electricity is lost in electricity transmission and distribution in the United States?", "publisher": "U.S. Energy Information Administration", "url": "https://www.eia.gov/tools/faqs/faq.php?id=105&t=3", "checked": "2026-11-06", "supports": "US transmission and distribution losses averaged about 5% of electricity transmitted and distributed, 2018 to 2022." }
+      ],
+      "notes": "No loss figure is on screen. If one is added, use EIA's \"about 5%\" with its scope: US, transmission and distribution combined, 2018 to 2022."
+    },
+    {
+      "id": "C04",
+      "origin": "plan",
+      "claim": "Datacenters' share of electricity use, shown only as dated, sourced figures.",
+      "shownIn": ["Hardware lens"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "citation", "title": "Energy and AI (World Energy Outlook Special Report)", "publisher": "International Energy Agency", "year": "2025", "url": "https://iea.blob.core.windows.net/assets/de9dea13-b07d-42c5-a398-d1b3ae17d866/EnergyandAI.pdf", "checked": "2026-11-06", "supports": "Data centres used around 1.5% of world electricity in 2024 (415 TWh); around 945 TWh projected for 2030." },
+        { "kind": "citation", "title": "Key Questions on Energy and AI", "publisher": "International Energy Agency", "year": "2026", "url": "https://iea.blob.core.windows.net/assets/3179f7f8-01f6-4dd6-bffa-c9f7b73f1dc9/KeyQuestionsonEnergyandAI.pdf", "checked": "2026-11-06", "supports": "Global data centre electricity demand grew 17% in 2025, to 485 TWh, slightly more than 1.5% of global demand." },
+        { "kind": "citation", "title": "Berkeley Lab Report Evaluates Increase in Electricity Demand from Data Centers", "publisher": "Lawrence Berkeley National Laboratory", "year": "2024", "url": "https://energyanalysis.lbl.gov/news/berkeley-lab-report-evaluates-increase-electricity-demand-data-centers", "checked": "2026-11-06", "supports": "US data centers used about 4.4% of total US electricity in 2023 (176 TWh); 6.7% to 12% expected by 2028." },
+        { "kind": "citation", "title": "United States Data Center Energy Usage Report: 2025 Update (LBNL-2001758)", "publisher": "U.S. Department of Energy and Lawrence Berkeley National Laboratory", "year": "2026", "url": "https://www.energy.gov/documents/united-states-data-center-energy-usage-report-2025-update", "checked": "2026-11-06", "supports": "US data centers used 192 TWh in 2024, 4.7% of total US electricity; reference case 649 TWh (11.8%) in 2030." }
+      ],
+      "notes": "Suggested wording: \"About 1.5% of world electricity (IEA, 2024); about 4.7% of US electricity (LBNL, 2024).\" Keep world and US figures apart, give the year and scope with every number, and label 2028 and 2030 figures as projections. The iea.org report pages did not load for the checker, so the IEA figures come from IEA's own PDFs."
+    },
+    {
+      "id": "C05",
+      "origin": "plan",
+      "claim": "Nearly all the electricity used by IT equipment ends up as heat.",
+      "shownIn": ["Shot 5"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Report to Congress on Server and Data Center Energy Efficiency: Public Law 109-431", "publisher": "U.S. EPA ENERGY STAR Program, prepared with Lawrence Berkeley National Laboratory", "year": "2007", "url": "https://www.osti.gov/servlets/purl/929723", "checked": "2026-11-06", "supports": "Data center equipment has high power intensities, with all of the electric power converted to heat that must be removed." }
+      ],
+      "notes": "The source says \"all\"; the caption says \"nearly all\", because a negligible share leaves as light, sound or signals on cables. This is conservation of energy, so the 2007 date does not weaken it. The FEMP best-practices guide named in the plan does not state it outright, so it was dropped."
+    },
+    {
+      "id": "C06",
+      "origin": "plan",
+      "claim": "Rack, server and board geometry is stylized and generic, not any specific product.",
+      "shownIn": ["Shots 5 to 7"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "disclosure", "text": "The inspector and the debug overlay say the hardware is generic and stylized. No product is named, so no exact spec is shown." }
+      ],
+      "notes": "To keep it generic: no logo, distinctive bezel or heatsink shape, or exact board layout that identifies a real product."
+    },
+    {
+      "id": "C07",
+      "origin": "plan",
+      "claim": "Memory is stacked beside the processor die on an interposer, so data travels less.",
+      "shownIn": ["Shot 7"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "HBM (High Bandwidth Memory)", "publisher": "Micron Technology", "url": "https://www.micron.com/products/memory/hbm", "checked": "2026-11-06", "supports": "HBM stacks DRAM dies with TSVs and sits in the package beside the CPU or GPU on a silicon interposer, shortening the path data travels and reducing power." },
+        { "kind": "citation", "title": "JEDEC Updates Groundbreaking High Bandwidth Memory (HBM) Standard", "publisher": "JEDEC Solid State Technology Association", "year": "2018", "url": "https://www.jedec.org/news/pressreleases/jedec-updates-groundbreaking-high-bandwidth-memory-hbm-standard-0", "checked": "2026-11-06", "supports": "JESD235B HBM uses TSV stacks of DRAM, 2, 4, 8 or 12 high, over a 1024-bit wide interface." },
+        { "kind": "citation", "title": "CoWoS (3DFabric)", "publisher": "TSMC", "url": "https://3dfabric.tsmc.com/english/dedicatedFoundry/technology/cowos.htm", "checked": "2026-11-06", "supports": "CoWoS-S places logic chiplets and high-bandwidth memory cubes side by side on a large silicon interposer." }
+      ],
+      "notes": "The caption says \"processor\", not \"chip\", because the memory stacks are chips too. This is HBM-style 2.5D packaging; do not imply every accelerator uses it."
+    },
+    {
+      "id": "C08",
+      "origin": "plan",
+      "claim": "A processor die is an array of many parallel compute units.",
+      "shownIn": ["Shot 8"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "citation", "title": "CUDA Programming Guide: Programming Model", "publisher": "NVIDIA", "url": "https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html", "checked": "2026-11-06", "supports": "The GPU can be considered a collection of Streaming Multiprocessors (SMs); thread blocks are scheduled across the available SMs in parallel." },
+        { "kind": "citation", "title": "CUDA C++ Programming Guide 13.0: Introduction", "publisher": "NVIDIA", "year": "2025", "url": "https://docs.nvidia.com/cuda/archive/13.0.0/cuda-c-programming-guide/index.html", "checked": "2026-11-06", "supports": "A GPU devotes more transistors to data processing than to caching and flow control, for much higher throughput than a CPU." },
+        { "kind": "disclosure", "text": "The concept is real; the layout, unit count and spacing are schematic." }
+      ],
+      "notes": "The caption says \"compute units\", not \"cores\": NVIDIA's repeated block is the SM (AMD calls it a compute unit), and \"CUDA cores\" are lanes inside an SM. A real die also holds caches, memory controllers and I/O."
+    },
+    {
+      "id": "C09",
+      "origin": "plan",
+      "claim": "Matrix units compute small matrix multiply-accumulate tiles.",
+      "shownIn": ["Shot 6", "Shot 9"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Programming Tensor Cores in CUDA 9", "publisher": "NVIDIA Developer Blog (Appleyard, Yokim)", "year": "2017", "url": "https://developer.nvidia.com/blog/programming-tensor-cores-cuda-9", "checked": "2026-11-06", "supports": "Tensor Cores are programmable matrix-multiply-and-accumulate units, each computing D = A x B + C on small matrix tiles." },
+        { "kind": "citation", "title": "TPU architecture", "publisher": "Google Cloud", "url": "https://docs.cloud.google.com/tpu/docs/system-architecture", "checked": "2026-11-06", "supports": "TPU matrix units (MXUs) are 128 x 128 or 256 x 256 systolic arrays of multiply-accumulators." }
+      ],
+      "notes": "No tile sizes are shown. The primitive is multiply-accumulate, so the captions say \"multiply and add\" and \"the work is arithmetic\". The CUDA guide's Warp Matrix Functions section would be a newer NVIDIA source but could not be confirmed, so it is not cited."
+    },
+    {
+      "id": "C10",
+      "origin": "plan",
+      "claim": "Process node names are not physical gate lengths, so no nanometer readout is shown as fact.",
+      "shownIn": ["Hardware lens"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "citation", "title": "A Better Way to Measure Progress in Semiconductors", "publisher": "IEEE Spectrum (Samuel K. Moore)", "year": "2020", "url": "https://spectrum.ieee.org/a-better-way-to-measure-progress-in-semiconductors", "checked": "2026-11-06", "supports": "Most critical features of a 7 nm transistor are considerably larger than 7 nm; node names stopped matching gate length about two decades ago." },
+        { "kind": "citation", "title": "Experts Invent a New Way to Track Semiconductor Technology", "publisher": "IEEE Spectrum (Samuel K. Moore)", "year": "2020", "url": "https://spectrum.ieee.org/experts-invent-a-new-way-to-track-semiconductor-technology", "checked": "2026-11-06", "supports": "Node names once meant gate length; it cites 7 nm transistors with 15 nm gate lengths." }
+      ],
+      "notes": "Say \"node names are generation labels, not a measured gate length\", never \"nothing on the chip is that small\". The peer-reviewed source behind these articles, Wong et al., \"A Density Metric for Semiconductor Technology\", Proc. IEEE 2020, has not been opened yet. The IRDS home page named in the plan was replaced because it does not state this directly."
+    },
+    {
+      "id": "C11",
+      "origin": "plan",
+      "claim": "Text is split into subword tokens.",
+      "shownIn": ["Shot 10"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Neural Machine Translation of Rare Words with Subword Units", "publisher": "Sennrich, Haddow, Birch", "year": "2016", "url": "https://arxiv.org/abs/1508.07909", "checked": "2026-11-06", "supports": "Proposes encoding rare and unknown words as sequences of subword units, segmented with byte pair encoding." }
+      ],
+      "notes": "This paper brought BPE subwords to translation. Current LLM tokenizers use byte-level BPE or Unigram/SentencePiece variants of the idea. Chat formatting can add special tokens."
+    },
+    {
+      "id": "C12",
+      "origin": "plan",
+      "claim": "The token IDs shown for your typed message come from a real tokenizer, named on screen; other chatbots tokenize differently.",
+      "shownIn": ["Shot 10", "Sandbox"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Neural Machine Translation of Rare Words with Subword Units", "publisher": "Sennrich, Haddow, Birch", "year": "2016", "url": "https://arxiv.org/abs/1508.07909", "checked": "2026-11-06", "supports": "Proposes encoding rare and unknown words as sequences of subword units, segmented with byte pair encoding." },
+        { "kind": "citation", "title": "Summary of the tokenizers", "publisher": "Hugging Face (Transformers documentation)", "url": "https://huggingface.co/docs/transformers/tokenizer_summary", "checked": "2026-11-06", "supports": "BPE, Unigram and WordPiece are used by different model families, each with its own vocabulary; GPT-2 uses byte-level BPE with 50,257 tokens." },
+        { "kind": "citation", "title": "Qwen2.5-0.5B-Instruct model card", "publisher": "Qwen team, Alibaba Cloud (Hugging Face)", "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct", "checked": "2026-11-06", "supports": "The pinned open model: an instruction-tuned causal language model with 0.49B parameters (0.36B non-embedding), Apache-2.0, revision 7ae557604adf67be50417f59c2c2f167def9a775." },
+        { "kind": "citation", "title": "tokenizers.js", "publisher": "Hugging Face", "url": "https://github.com/huggingface/tokenizers.js", "checked": "2026-11-06", "supports": "Standalone JavaScript tokenizers: builds a Tokenizer from a model's tokenizer.json and tokenizer_config.json and encodes text to token IDs, with no network." },
+        { "kind": "artifact", "path": "src/model/tokenizer.ts", "status": "planned" }
+      ],
+      "notes": "Model-specific: the pinned tokenizer and model (see README) are named on screen, and the screen says whether special or chat-template tokens are shown. Two research runs found identical IDs to the Rust and Python tokenizers except on rare characters where the Unicode implementations disagree (4,852 code points in 85 ranges, mostly CJK Extension J); the typed-text view flags such input."
+    },
+    {
+      "id": "C13",
+      "origin": "plan",
+      "claim": "Each token becomes a vector of numbers; the dimensions are drawn reduced.",
+      "shownIn": ["Shot 11"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "citation", "title": "Attention Is All You Need", "publisher": "Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin", "year": "2017", "url": "https://arxiv.org/pdf/1706.03762", "checked": "2026-11-06", "supports": "Section 3.4: learned embeddings convert tokens to vectors of dimension d_model, 512 in the base model." },
+        { "kind": "disclosure", "text": "The concept is real; the number of dimensions drawn is reduced." }
+      ],
+      "notes": "A model's width is model-specific, so no dimension count is shown unless it names its model."
+    },
+    {
+      "id": "C14",
+      "origin": "plan",
+      "claim": "The hero reply's attention weights are exported from a real open model run.",
+      "shownIn": ["Shot 12"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Attention Is All You Need", "publisher": "Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin", "year": "2017", "url": "https://arxiv.org/pdf/1706.03762", "checked": "2026-11-06", "supports": "Section 3.2.1 defines scaled dot-product attention: softmax(QK^T / sqrt(d_k)) V gives the weights on the values." },
+        { "kind": "citation", "title": "Model outputs", "publisher": "Hugging Face (Transformers documentation)", "url": "https://huggingface.co/docs/transformers/main_classes/output", "checked": "2026-11-06", "supports": "With output_attentions=True, a model returns one attention tensor per layer, shaped (batch, heads, sequence, sequence), after the softmax." },
+        { "kind": "citation", "title": "Attention is not Explanation", "publisher": "Jain, Wallace", "year": "2019", "url": "https://arxiv.org/abs/1902.10186", "checked": "2026-11-06", "supports": "Caveat, not support: standard attention weights largely do not provide meaningful explanations for predictions." },
+        { "kind": "citation", "title": "Qwen2.5-0.5B-Instruct model card", "publisher": "Qwen team, Alibaba Cloud (Hugging Face)", "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct", "checked": "2026-11-06", "supports": "The pinned open model: an instruction-tuned causal language model with 0.49B parameters (0.36B non-embedding), Apache-2.0, revision 7ae557604adf67be50417f59c2c2f167def9a775." },
+        { "kind": "citation", "title": "Qwen2.5-0.5B-Instruct config.json", "publisher": "Qwen team, Alibaba Cloud (Hugging Face)", "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/raw/main/config.json", "checked": "2026-11-06", "supports": "num_hidden_layers 24, num_attention_heads 14, num_key_value_heads 2, vocab_size 151936. Git blob 0dbb161213629a23f0fc00ef286e6b1e366d180f, the same file as at revision 7ae557604adf67be50417f59c2c2f167def9a775." },
+        { "kind": "artifact", "path": "tools/build-traces.py", "status": "planned" }
+      ],
+      "notes": "The screen names the model, revision, layer and head, or says how heads were averaged. It never suggests the attention map explains why a word was chosen (Jain and Wallace 2019). The hero model has 24 layers of 14 query heads, so 336 attention maps per pass; export with eager attention, which the default sdpa path does not return."
+    },
+    {
+      "id": "C15",
+      "origin": "plan",
+      "claim": "Attention shown for text you type is simulated, never real.",
+      "shownIn": ["Shot 12", "Sandbox"],
+      "label": "Simulated",
+      "sources": [
+        { "kind": "disclosure", "text": "A \"Simulated\" badge stays on screen whenever typed text drives the attention view." },
+        { "kind": "artifact", "path": "src/model/simulator.ts", "status": "planned" }
+      ],
+      "notes": "Simulated attention is styled differently from the real hero trace, so a screenshot of one cannot pass for the other."
+    },
+    {
+      "id": "C16",
+      "origin": "plan",
+      "claim": "In a decoder language model, each token attends to itself and earlier tokens, never to later ones.",
+      "shownIn": ["Shot 12"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Attention Is All You Need", "publisher": "Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin", "year": "2017", "url": "https://arxiv.org/pdf/1706.03762", "checked": "2026-11-06", "supports": "Section 3.2.3: decoder self-attention lets each position attend to all positions up to and including itself; later positions are masked out before the softmax." },
+        { "kind": "citation", "title": "Improving Language Understanding by Generative Pre-Training", "publisher": "Radford, Narasimhan, Salimans, Sutskever (OpenAI)", "year": "2018", "url": "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf", "checked": "2026-11-06", "supports": "Trains a 12-layer decoder-only transformer with masked self-attention heads as a language model." }
+      ],
+      "notes": "Caption: \"Attention: each token looks back, never ahead.\" \"Back\" includes the token itself. Vaswani's model is encoder-decoder; GPT-1 is the reference for decoder-only models."
+    },
+    {
+      "id": "C17",
+      "origin": "plan",
+      "claim": "Layer counts are stated only for open-weight models, from their config file or model card, never for closed models.",
+      "shownIn": ["Shot 13"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "citation", "title": "Qwen2.5-0.5B-Instruct config.json", "publisher": "Qwen team, Alibaba Cloud (Hugging Face)", "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/raw/main/config.json", "checked": "2026-11-06", "supports": "num_hidden_layers 24, num_attention_heads 14, num_key_value_heads 2, vocab_size 151936. Git blob 0dbb161213629a23f0fc00ef286e6b1e366d180f, the same file as at revision 7ae557604adf67be50417f59c2c2f167def9a775." },
+        { "kind": "disclosure", "text": "Any layer count on screen names its model and links its model card." }
+      ],
+      "notes": "Many model cards leave layer counts out; config.json (num_hidden_layers or n_layer) or the technical report has them, so cite whichever is used."
+    },
+    {
+      "id": "C18",
+      "origin": "plan",
+      "claim": "The model outputs a score for every token in its vocabulary.",
+      "shownIn": ["Shot 14"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Attention Is All You Need", "publisher": "Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin", "year": "2017", "url": "https://arxiv.org/pdf/1706.03762", "checked": "2026-11-06", "supports": "Section 3.4: a learned linear transformation and a softmax turn the decoder output into next-token probabilities." },
+        { "kind": "citation", "title": "Utilities for Generation", "publisher": "Hugging Face (Transformers documentation)", "url": "https://huggingface.co/docs/transformers/internal/generation%5Futils", "checked": "2026-11-06", "supports": "Generation logits are the scores for each vocabulary token before SoftMax, one tensor per generated token shaped (batch_size, config.vocab_size)." },
+        { "kind": "citation", "title": "Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism", "publisher": "Shoeybi, Patwary, Puri, LeGresley, Casper, Catanzaro", "year": "2019", "url": "https://arxiv.org/pdf/1909.08053", "checked": "2026-11-06", "supports": "Section 5.1: the vocabulary is padded to a multiple of 1,024 for efficient logit-layer matrix multiplies (51,200 rows)." },
+        { "kind": "citation", "title": "Qwen2.5-0.5B-Instruct config.json", "publisher": "Qwen team, Alibaba Cloud (Hugging Face)", "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/raw/main/config.json", "checked": "2026-11-06", "supports": "num_hidden_layers 24, num_attention_heads 14, num_key_value_heads 2, vocab_size 151936. Git blob 0dbb161213629a23f0fc00ef286e6b1e366d180f, the same file as at revision 7ae557604adf67be50417f59c2c2f167def9a775." }
+      ],
+      "notes": "If a count of scores is shown, say whether it is the output layer size or the number of real tokens: some models pad the output layer (Megatron-LM). Logits come out at every position, but only the last position picks the next token. For the pinned model the output layer has 151,936 scores, of which 151,665 are real tokens; the other 271 are padding."
+    },
+    {
+      "id": "C19",
+      "origin": "plan",
+      "claim": "Softmax turns scores into probabilities; temperature divides the scores first.",
+      "shownIn": ["Shot 15", "Sandbox"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Distilling the Knowledge in a Neural Network", "publisher": "Hinton, Vinyals, Dean", "year": "2015", "url": "https://arxiv.org/pdf/1503.02531", "checked": "2026-11-06", "supports": "Section 2: softmax turns each logit z_i into probability q_i = exp(z_i/T) / sum_j exp(z_j/T); a higher temperature T gives a softer distribution." },
+        { "kind": "citation", "title": "The Curious Case of Neural Text Degeneration", "publisher": "Holtzman, Buys, Du, Forbes, Choi", "year": "2019", "url": "https://arxiv.org/pdf/1904.09751", "checked": "2026-11-06", "supports": "Section 3.3: sampling with temperature recomputes the softmax with each logit divided by the temperature (Eq. 4)." }
+      ],
+      "notes": "The formula is undefined at T = 0; the sandbox treats T = 0 as greedy argmax. Temperature can change which tokens fall inside top-p, but never the top-k set, because dividing by T keeps the ranking."
+    },
+    {
+      "id": "C20",
+      "origin": "plan",
+      "claim": "Top-k and top-p sampling keep only the likeliest candidates, then pick one at random by probability.",
+      "shownIn": ["Shot 16", "Sandbox"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Hierarchical Neural Story Generation", "publisher": "Fan, Lewis, Dauphin", "year": "2018", "url": "https://arxiv.org/pdf/1805.04833", "checked": "2026-11-06", "supports": "Section 5.4: stories are generated with a top-k random sampling scheme, sampling from the k = 10 most likely candidates." },
+        { "kind": "citation", "title": "The Curious Case of Neural Text Degeneration", "publisher": "Holtzman, Buys, Du, Forbes, Choi", "year": "2019", "url": "https://arxiv.org/pdf/1904.09751", "checked": "2026-11-06", "supports": "Section 3.1: top-p keeps the smallest set of tokens whose probabilities sum to at least p, rescales, and samples; Section 3.2 describes top-k." }
+      ],
+      "notes": "The pick is random within the kept set, so it is not always the top token. Greedy decoding, always the top token, is a third option."
+    },
+    {
+      "id": "C21",
+      "origin": "plan",
+      "claim": "A reply is generated one token at a time: after a first pass over the prompt, each new token takes one more pass through every layer, reusing cached keys and values.",
+      "shownIn": ["Shot 17", "Shot 18"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention", "publisher": "Kwon, Li, Zhuang, Sheng, Zheng, Yu, Gonzalez, Zhang, Stoica", "year": "2023", "url": "https://arxiv.org/pdf/2309.06180", "checked": "2026-11-06", "supports": "Section 2.2: the prompt is processed first; new tokens are then generated one by one, each depending on all previous tokens, with earlier keys and values cached." },
+        { "kind": "citation", "title": "Fast Inference from Transformers via Speculative Decoding", "publisher": "Leviathan, Kalman, Matias", "year": "2022", "url": "https://arxiv.org/abs/2211.17192v2", "checked": "2026-11-06", "supports": "Caveat: decoding K tokens normally takes K serial runs of the model; speculative decoding computes several tokens per run of the large model." }
+      ],
+      "notes": "Shot 17's caption says \"the model runs again\", not \"the whole journey\": the network trip and tokenizing the message are not repeated per token. One pass per token is the standard case; speculative decoding is the exception. The cache is drawn schematically."
+    },
+    {
+      "id": "C22",
+      "origin": "plan",
+      "claim": "Serving systems batch many users' requests together on the same accelerators.",
+      "shownIn": ["Batching moment"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention", "publisher": "Kwon, Li, Zhuang, Sheng, Zheng, Yu, Gonzalez, Zhang, Stoica", "year": "2023", "url": "https://arxiv.org/abs/2309.06180", "checked": "2026-11-06", "supports": "High-throughput LLM serving requires batching sufficiently many requests at a time; wasted KV cache memory limits the batch size." },
+        { "kind": "citation", "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models", "publisher": "Yu, Jeong, Kim, Kim, Chun (USENIX OSDI 22)", "year": "2022", "url": "https://www.usenix.org/conference/osdi22/presentation/yu", "checked": "2026-11-06", "supports": "Iteration-level scheduling runs each model iteration on a batch of requests, so requests join and leave the batch between iterations." }
+      ],
+      "notes": "Large models are often split across several accelerators, so the screen should not imply one chip serves one model. Modern systems batch per iteration (continuous batching)."
+    },
+    {
+      "id": "C23",
+      "origin": "plan",
+      "claim": "Time is slowed for most of the piece and sped up in shot 17.",
+      "shownIn": ["Throughout", "Shot 17"],
+      "label": "Simulated",
+      "sources": [
+        { "kind": "disclosure", "text": "A \"time dilated\" badge is on screen whenever playback time differs from real time." }
+      ]
+    },
+    {
+      "id": "C24",
+      "origin": "plan",
+      "claim": "Energy used by one reply, shown only as published estimates with their methods.",
+      "shownIn": ["Ledger only"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "disclosure", "text": "Kept out of Story mode. The ledger lists published estimates side by side, each with its date, scope and method, and does not average them." },
+        { "kind": "citation", "title": "Measuring the environmental impact of delivering AI at Google Scale", "publisher": "Elsworth, Huang, Patterson, Schneider, Sedivy, Goodman, Townsend, Ranganathan, Dean, Vahdat, Gomes, Manyika (Google)", "year": "2025", "url": "https://arxiv.org/pdf/2508.15734", "checked": "2026-11-06", "supports": "Median Gemini Apps text prompt, May 2025: 0.24 Wh, measured across the serving stack including idle machines and PUE; accelerators alone 0.10 Wh." },
+        { "kind": "citation", "title": "How much energy does ChatGPT use?", "publisher": "Josh You, Epoch AI", "year": "2025", "url": "https://epoch.ai/gradient-updates/how-much-energy-does-chatgpt-use", "checked": "2026-11-06", "supports": "Estimate, February 2025: a typical GPT-4o text query with 500 output tokens uses about 0.3 Wh, from assumed hardware and overheads." },
+        { "kind": "citation", "title": "The Gentle Singularity", "publisher": "Sam Altman (OpenAI), personal blog", "year": "2025", "url": "https://blog.samaltman.com/the-gentle-singularity", "checked": "2026-11-06", "supports": "States the average ChatGPT query uses about 0.34 Wh; gives no method, query definition or boundary." },
+        { "kind": "citation", "title": "Electricity 2024: Analysis and forecast to 2026", "publisher": "International Energy Agency", "year": "2024", "url": "https://iea.blob.core.windows.net/assets/18f3ed24-4b26-4c83-a3d2-8a1be51c8cc8/Electricity2024-Analysisandforecastto2026.pdf", "checked": "2026-11-06", "supports": "Pages 34 to 35: 2.9 Wh per ChatGPT request versus 0.3 Wh per Google search; no source is given for either figure." }
+      ],
+      "notes": "Suggested wording: \"Published estimates for one typical text prompt range from 0.24 Wh to 2.9 Wh; none measured this reply.\" Scopes differ (measured median versus bottom-up estimate versus undisclosed method), so never average them. Epoch traces the common ~3 Wh figure to de Vries, Joule 2023, which has not been opened yet."
+    },
+    {
+      "id": "C25",
+      "origin": "plan",
+      "claim": "Your reply was made in this building.",
+      "shownIn": ["Shots 4 to 9"],
+      "label": "Metaphor",
+      "sources": [
+        { "kind": "disclosure", "text": "The inspector says the datacenter shown is generic, not the building that served any real reply." }
+      ],
+      "notes": "Safer on-screen wording: \"Replies like yours are made in buildings like this one.\" Never name or imply a specific site."
+    },
+    {
+      "id": "C26",
+      "origin": "plan",
+      "claim": "Steps left out of the piece include system prompts, safety checks and routing.",
+      "shownIn": ["Ledger", "Final card"],
+      "label": "Approximated",
+      "sources": [
+        { "kind": "disclosure", "text": "The final card lists the steps a production chatbot adds that this piece leaves out." }
+      ],
+      "notes": "Worded as a partial list (\"among other steps\"), so it does not imply these are the only steps left out."
+    },
+    {
+      "id": "C27",
+      "origin": "approval 2026-11-06",
+      "claim": "The loop counter for the hero reply shows the real number of tokens in that reply.",
+      "shownIn": ["Shot 18"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention", "publisher": "Kwon, Li, Zhuang, Sheng, Zheng, Yu, Gonzalez, Zhang, Stoica", "year": "2023", "url": "https://arxiv.org/pdf/2309.06180", "checked": "2026-11-06", "supports": "Section 2.2: the prompt phase processes the whole prompt; the generation phase then produces the remaining tokens one by one, reusing cached keys and values." },
+        { "kind": "citation", "title": "Qwen2.5-0.5B-Instruct model card", "publisher": "Qwen team, Alibaba Cloud (Hugging Face)", "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct", "checked": "2026-11-06", "supports": "The pinned open model: an instruction-tuned causal language model with 0.49B parameters (0.36B non-embedding), Apache-2.0, revision 7ae557604adf67be50417f59c2c2f167def9a775." },
+        { "kind": "artifact", "path": "tools/build-traces.py", "status": "planned" }
+      ],
+      "notes": "Until the hero trace exists, the caption shows no number. The count says whether it includes the end-of-turn token, uses the same tokenizer and chat template that produced the reply, and is not equated with passes if the trace used speculative decoding."
+    },
+    {
+      "id": "C28",
+      "origin": "approval 2026-11-06",
+      "claim": "The loop counter for text you type is simulated.",
+      "shownIn": ["Shot 18", "Sandbox"],
+      "label": "Simulated",
+      "sources": [
+        { "kind": "disclosure", "text": "The counter carries a \"Simulated\" label whenever typed text drives it." }
+      ]
+    },
+    {
+      "id": "C29",
+      "origin": "build",
+      "claim": "Large datacenters hold thousands of servers and are designed around power delivery and cooling.",
+      "shownIn": ["Shot 4", "Shot 5"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "The Datacenter as a Computer: An Introduction to the Design of Warehouse-Scale Machines", "publisher": "Barroso, Holzle (Google); Morgan & Claypool", "year": "2009", "url": "https://dsf.berkeley.edu/cs286/papers/warehouse-synthesis2009.pdf", "checked": "2026-11-06", "supports": "Chapter 1: such datacenters hold thousands of computing nodes plus power distribution and extensive cooling; Chapter 4: construction cost scales with power delivered." },
+        { "kind": "citation", "title": "Case Study: Opportunities to Improve Energy Efficiency in Three Federal Data Centers", "publisher": "U.S. DOE Federal Energy Management Program (prepared by LBNL)", "year": "2014", "url": "https://www.energy.gov/femp/articles/case-study-opportunities-improve-energy-efficiency-three-federal-data-centers", "checked": "2026-11-06", "supports": "Three federal data centers house thousands of computing, storage and data transport servers and devices; the study examines their cooling and PUE." },
+        { "kind": "citation", "title": "Best Practices Guide for Energy-Efficient Data Center Design", "publisher": "U.S. DOE FEMP and NREL (Van Geet, Sickinger)", "year": "2024", "url": "https://www.energy.gov/sites/default/files/2024-07/best-practice-guide-data-center-design.pdf", "checked": "2026-11-06", "supports": "Data center spaces can use many times the electricity of office space; the servers drive the entire operation, and power-path heat tracks the load." },
+        { "kind": "citation", "title": "Data Centers and Servers", "publisher": "U.S. Department of Energy", "url": "https://www.energy.gov/eere/data-centers-and-servers", "checked": "2026-11-06", "supports": "Data centers are among the most energy-intensive building types, using 10 to 50 times the energy per floor space of a typical office building." }
+      ],
+      "notes": "\"Thousands\" is a safe lower bound; no current primary source gives per-site server counts for hyperscale or AI campuses, so no count is shown."
+    },
+    {
+      "id": "C30",
+      "origin": "build",
+      "claim": "A transformer stacks many layers of the same structure, each with its own weights.",
+      "shownIn": ["Shot 13"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Attention Is All You Need", "publisher": "Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin", "year": "2017", "url": "https://arxiv.org/pdf/1706.03762", "checked": "2026-11-06", "supports": "Section 3.1: the encoder and decoder are each a stack of N = 6 identical layers; Section 3.3: the transformations use different parameters from layer to layer." },
+        { "kind": "citation", "title": "Gemma 2: Improving Open Language Models at a Practical Size", "publisher": "Gemma Team", "year": "2024", "url": "https://arxiv.org/abs/2408.00118", "checked": "2026-11-06", "supports": "Caveat: Gemma 2 interleaves local and global attention layers, so in some models the repeated block varies." }
+      ],
+      "notes": "Caption: \"The same structure repeats, layer after layer, with new weights.\" Layers share structure, not weights."
+    },
+    {
+      "id": "C31",
+      "origin": "build",
+      "claim": "Every chatbot reply is computed on hardware that runs on electricity.",
+      "shownIn": ["Shot 1"],
+      "label": "Real",
+      "sources": [
+        { "kind": "citation", "title": "Measuring the environmental impact of delivering AI at Google Scale", "publisher": "Elsworth, Huang, Patterson, Schneider, Sedivy, Goodman, Townsend, Ranganathan, Dean, Vahdat, Gomes, Manyika (Google)", "year": "2025", "url": "https://arxiv.org/pdf/2508.15734", "checked": "2026-11-06", "supports": "Measures the electricity used to serve each Gemini Apps text prompt in production: a median of 0.24 Wh in May 2025." },
+        { "kind": "citation", "title": "Energy and AI (World Energy Outlook Special Report)", "publisher": "International Energy Agency", "year": "2025", "url": "https://iea.blob.core.windows.net/assets/de9dea13-b07d-42c5-a398-d1b3ae17d866/EnergyandAI.pdf", "checked": "2026-11-06", "supports": "Data centres, where AI models are served, used around 1.5% of world electricity in 2024 (415 TWh)." }
+      ],
+      "notes": "Replaces the plan line \"Every reply starts as electricity\", which read as framing over the bolt (review, 2026-11-06)."
+    }
+  ],
+  "explainables": []
+}
