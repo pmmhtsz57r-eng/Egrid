@@ -4,11 +4,12 @@
   "private": true,
   "description": "One Message: From Lightning to Language. Module 1: gray-box timeline and camera path for judging 90s pacing.",
   "type": "module",
+  "packageManager": "npm@10.9.9",
   "engines": {
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "vite --open",
+    "dev": "vite",
     "build": "npm run lint:ledger && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
