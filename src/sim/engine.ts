@@ -123,7 +123,7 @@ export class Simulation {
     const sc = this.scenario;
     const gens: Record<string, GenState> = {};
     for (const g of sc.network.generators) {
-      gens[g.id] = { online: true, pm: g.initial, pe: g.initial, setpoint: g.initial, freq: F0, overload: 0, freqTripTimer: 0 };
+      gens[g.id] = { online: true, pm: g.initial, pe: g.initial, setpoint: g.initial, freq: F0, overload: 0, freqTripTimer: 0, backedOff: 0 };
     }
     const lines: Record<string, LineState> = {};
     for (const l of sc.network.lines) {
@@ -1213,8 +1213,19 @@ export class Simulation {
         const floor = gs.freq > F0 + 1 ? 0 : g.min;
         target = clamp(gs.setpoint + droop, floor, g.capacity * g.emergencyRating);
         down = Math.max(g.ramp * 6, OVERSPEED_RATE * g.capacity) * DT;
+        // output given up on over-frequency is still there (steam, water head): when the load
+        // returns the governor reopens at the same fast rate, up to what it gave up; only output
+        // beyond that is limited by the unit's ramp
+        up = Math.max(up, Math.min(down, gs.backedOff));
       }
-      gs.pm += clamp(target - gs.pm, -down, up);
+      const step = clamp(target - gs.pm, -down, up);
+      gs.pm += step;
+      if (g.kind !== 'wind') {
+        if (step < 0 && gs.freq > F0) gs.backedOff += -step;
+        else if (step > 0) gs.backedOff = Math.max(0, gs.backedOff - step);
+        // a lowered setpoint is a decision, not a reserve: never hold more than the gap to it
+        gs.backedOff = Math.min(gs.backedOff, Math.max(0, gs.setpoint - gs.pm + g.droopLimit * g.capacity));
+      }
     }
   }
 

@@ -179,6 +179,9 @@ function suggestFor(sim: Simulation, t: Threat): { action: Action; label: string
     return undefined;
   }
   if (k === 'freq-high') {
+    // a district part-way through a transfer is dark for a moment and comes straight back:
+    // the high frequency is that gap, and acting on it sheds load when the district returns
+    if (n.zones.some((z) => s.zones[z.id].transferTimer > 0)) return undefined;
     // a data centre burning limited fuel in this island is the cheapest load to give back:
     // lowering the last controllable unit instead leaves the island hostage to that fuel
     // surplus generation in this island right now; load given back must fit inside it, or the
@@ -199,7 +202,7 @@ function suggestFor(sim: Simulation, t: Threat): { action: Action; label: string
     // never the island's last controllable unit while it leans on the data centre's limited fuel
     if (dc && units.length < 2) return undefined;
     const g = units
-      .filter((x) => s.gens[x.id].pm > x.min + 5 && s.gens[x.id].setpoint > x.min + 10)
+      .filter((x) => s.gens[x.id].pm > x.min + 5 && s.gens[x.id].setpoint > x.min + 10 && s.gens[x.id].setpoint >= s.gens[x.id].pm - 5)
       .sort((a, b) => busX(sim, a.bus) - busX(sim, b.bus))[0];
     return g ? { action: { type: 'setpoint', gen: g.id, delta: -10 }, label: `Lower ${g.short}` } : undefined;
   }
@@ -208,6 +211,12 @@ function suggestFor(sim: Simulation, t: Threat): { action: Action; label: string
     const best = sim.reliefOptions(t.id, 6).find((o) => {
       if (Math.max(o.loading, o.worstOther) > 1) return false;
       if (o.action.type === 'setpoint' && ((lowF && o.action.delta < 0) || (highF && o.action.delta > 0))) return false;
+      // one step at a time: not while the unit is still moving to its last setpoint, and never
+      // lower below nominal frequency (the step-down would carry it into shedding)
+      if (o.action.type === 'setpoint') {
+        const g = s.gens[o.action.gen];
+        if (Math.abs(g.setpoint - g.pm) > 5 || (o.action.delta < 0 && s.freq < 50) || (o.action.delta > 0 && s.freq > 50)) return false;
+      }
       if (o.action.type === 'transfer' && sim.zoneDef(o.action.zone).critical) return false;
       if (o.action.type === 'transfer') {
         const z = sim.zoneDef(o.action.zone);

@@ -246,7 +246,7 @@ describe('fixes from review round 4', () => {
 
 describe('fixes from review round 6', () => {
   /** Hint follower that keeps its recording, as in round 3. */
-  function follow(seed: number) {
+  function follow(seed: number, react = 20, gap = 15) {
     const sim = new Simulation(createCrisis(seed));
     const seen: Record<string, number> = {};
     let free = 0;
@@ -255,8 +255,8 @@ describe('fixes from review round 6', () => {
       const list = threats(sim);
       for (const th of list) seen[th.key] ??= t;
       if (t >= free) for (const th of list) {
-        if (t - seen[th.key] < 20 || !th.suggest) continue;
-        if (sim.queue(th.suggest.action).ok) { free = t + 15; break; }
+        if (t - seen[th.key] < react || !th.suggest) continue;
+        if (sim.queue(th.suggest.action).ok) { free = t + gap; break; }
       }
       sim.step();
     }
@@ -264,10 +264,10 @@ describe('fixes from review round 6', () => {
   }
   const online = (sim: Simulation) => sim.net.generators.filter((g) => sim.state.gens[g.id].online).length;
 
-  it('a hinted action never sets off automatic shedding or trips a generator within 5 s', () => {
+  it.each([[5, 5], [10, 10], [20, 15]])('a hinted action never sets off automatic shedding or trips a generator within 5 s (tap after %i ticks)', (react, gap) => {
     for (const seed of SEEDS) {
       const sc = createCrisis(seed);
-      const rec = follow(seed).recording;
+      const rec = follow(seed, react, gap).recording;
       for (let i = 0; i < rec.length; i++) {
         const until = rec[i].tick + 51;
         const withIt = Simulation.replay(sc, rec.slice(0, i + 1), until);

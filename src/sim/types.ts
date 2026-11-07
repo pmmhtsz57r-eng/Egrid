@@ -196,6 +196,8 @@ export interface GenState {
   freq: number;
   overload: number;
   freqTripTimer: number;
+  /** MW the governor has shed on over-frequency and may take back at its fast rate. */
+  backedOff: number;
   trip?: string;
 }
 
