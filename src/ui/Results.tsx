@@ -90,7 +90,7 @@ export function Results(p: Props) {
     <div className="results">
       <div className="results-inner">
         <div className="res-hero">
-          <div className="kicker">{o.collapsed ? 'INCIDENT FAILED' : 'INCIDENT CLOSED'} · STORM #{p.seed}</div>
+          <div className="kicker">{o.collapsed ? 'INCIDENT FAILED' : o.powerRestoredPct < 0.5 ? 'CITY LARGELY DARK' : 'INCIDENT CLOSED'} · STORM #{p.seed}</div>
           <h1 className={o.collapsed ? 'crit' : ''}>{o.collapsed ? 'TOTAL BLACKOUT' : 'NOVA CITY INCIDENT REPORT'}</h1>
           <div className="score-row">
             <div className="stability">

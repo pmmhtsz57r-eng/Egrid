@@ -1206,7 +1206,7 @@ export class Simulation {
       } else {
         // droop: limited headroom upwards, generous load-rejection response downwards
         // Downwards the full droop range applies (down to the unit's minimum), and over-speed
-        // control closes valves or guide vanes at up to half the rating per second.
+        // control closes valves or guide vanes at up to the full rating per second.
         const droop = clamp((-(gs.freq - F0) / (DROOP * F0)) * g.capacity, -g.capacity, g.droopLimit * g.capacity);
         // Above 51 Hz the unit may drop below its minimum stable output to no-load (load
         // rejection), so a lightly loaded island settles instead of over-speeding.

@@ -333,7 +333,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
   .gauge label { font-size: 8.5px; letter-spacing: 0.1em; }
   .gauge .big { font-size: 17px; }
   .gauge .big small { font-size: 10px; }
-  .split, .mini-note { display: none; }
+  .split { display: none; }
+  .mini-note { font-size: 8px; margin-top: 1px; }
   .crit-icons { gap: 4px; }
   .ci { width: 30px; height: 32px; }
   .ci span { font-size: 12px; }

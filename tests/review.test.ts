@@ -289,4 +289,15 @@ describe('fixes from review round 6', () => {
       }
     }
   });
+
+  it('a governor retakes only the output it shed on over-frequency, never a lowered setpoint', () => {
+    const sim = Simulation.replay(createCrisis(7919), [], 30);
+    const g = sim.state.gens.G1;
+    // a deliberate lowering is not a reserve
+    expect(sim.queue({ type: 'setpoint', gen: 'G1', delta: -20 }).ok).toBe(true);
+    for (let i = 0; i < 40; i++) sim.step();
+    const def = sim.net.generators.find((x) => x.id === 'G1')!;
+    expect(g.backedOff).toBeLessThanOrEqual(Math.max(0, g.setpoint - g.pm + def.droopLimit * def.capacity) + 1e-9);
+    expect(g.backedOff).toBeGreaterThanOrEqual(0);
+  });
 });
