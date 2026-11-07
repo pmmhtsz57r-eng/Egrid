@@ -73,7 +73,7 @@ Doing nothing typically ends in automatic load shedding, a stranded railway and 
 | Exempt a zone from automatic shedding | At most 3; the scheme then sheds others or frequency falls further. |
 | Open or close a line | Closing onto a permanent fault trips again and heats the neighbouring transformers. |
 | Isolate or energise a transformer | Protects it, but its zones go dark unless transferred. |
-| Start backup generation | Hospital and data-centre generators take 6 to 10 s; a failed transfer switch needs a crew first. The data centre on its own generators frees ~30 MW of grid capacity. |
+| Start backup generation | Hospital and data-centre generators take 6 to 10 s; a failed transfer switch needs a crew first. The data centre (at Südstadt, east end of the west-to-east lines) on its own generators frees ~30 MW where it relieves both the frequency and those lines. |
 | Dispatch a repair crew (2 crews) | Travel time from the depot plus 6 to 10 s of work. Repairs lines, transfer switches, resets tripped transformers once cool. |
 | Investigate | 4 s, one at a time. Reveals permanent faults, incipient transformer faults and lying sensors. |
 | Deploy the mobile generator (once) | 8 MW, travel time; powers part of a dark zone or offloads a live one. |

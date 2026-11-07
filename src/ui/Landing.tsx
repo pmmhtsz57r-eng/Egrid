@@ -9,6 +9,7 @@ interface Props {
   onAcceptChallenge: () => void;
   dailySeed: number;
   dailyBest: number | null;
+  badLink?: boolean;
   played: number;
 }
 
@@ -17,6 +18,12 @@ export function Landing(p: Props) {
   return (
     <div className="landing">
       <div className="landing-inner">
+        {p.badLink && !p.challenge && (
+          <div className="challenge-banner bad">
+            <div className="cb-kicker">CHALLENGE LINK DAMAGED</div>
+            <div className="cb-text">This link could not be read, perhaps it was cut off when it was copied. Ask for it again, or play a new storm.</div>
+          </div>
+        )}
         {p.challenge && (
           <div className="challenge-banner">
             <div className="cb-kicker">CHALLENGE RECEIVED</div>
@@ -45,7 +52,7 @@ export function Landing(p: Props) {
         </button>
         <div className="secondary">
           <button className="ghost" onClick={() => p.onStart('daily')}>
-            Daily storm #{p.dailySeed}{p.dailyBest !== null ? ` · your best ${p.dailyBest}%` : ''}
+            Daily storm #{p.dailySeed}{p.dailyBest !== null ? ` · your best ${p.dailyBest}/100` : ''}
           </button>
           <button className="ghost" onClick={() => setHow(!how)}>{how ? 'Hide' : 'How it works'}</button>
         </div>

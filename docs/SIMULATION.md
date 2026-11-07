@@ -31,7 +31,8 @@ with `H` the inertia constant and `S` the rating of each machine (wind has a nea
 
 ## Generators
 
-- **Governors**: droop of 4% (2 Hz for 100% output). Upward response limited to 8% (gas) or 12% (hydro) of rating. Downward the full droop range applies, down to the unit's minimum stable output (gas 20 MW, hydro 10 MW), and over-speed control closes valves at up to 50% of rating per second, so an island left with too much generation settles instead of tripping.
+- **Governors**: droop of 4% (2 Hz for 100% output). Upward response limited to 8% (gas) or 12% (hydro) of rating. Downward the full droop range applies, down to the unit's minimum stable output (gas 20 MW, hydro 10 MW), and over-speed control closes valves at up to 100% of rating per second, so an island left with too much generation settles instead of tripping. Above 51 Hz a unit may drop below its minimum stable output to no-load (load rejection).
+- **Wind in an island**: the wind farm's inverters are grid-following. If a line trip leaves it in an island with no synchronous machine, it disconnects at once rather than trying to hold a frequency it cannot set.
 - **Ramp limits**: gas 3 MW/s, hydro 8 MW/s, wind 20 MW/s (wind follows the available-wind curve and can only curtail).
 - **Emergency rating**: the gas station may run to 110% for 25 s, then trips on exhaust over-temperature.
 - **Frequency protection**: a machine trips after 1 s below 47.5 Hz or above 52 Hz.
@@ -72,7 +73,7 @@ A shift accepts at most 400 decisions, so every recording fits in a challenge li
 
 ## Where the difficulty comes from
 
-The gas station is in the west and most of the load that loses wind supply is in the north and east. When the wind farm shuts down, the replacement power has to cross the west-to-east lines L6, L9 and L12. Freeing power in the west (curtailing the industrial district, running the data centre on its own generators) fixes the frequency but pushes more power east over those lines. Raising the eastern hydro dam, or cutting load in the east, helps both. Grid analysis on any overloaded line evaluates each single action with the same flow model.
+The gas station is in the west and most of the load that loses wind supply is in the north and east. When the wind farm shuts down, the replacement power has to cross the west-to-east lines L6, L9 and L12. Raising the gas station or freeing load in the west (curtailing the industrial district) fixes the frequency but pushes more power east over those lines. Raising the eastern hydro dam, or cutting load in the east (the data centre at Südstadt running on its own generators), helps both. The frequency warning lists generation headroom east first and flags western headroom. Grid analysis on any overloaded line evaluates each single action with the same flow model.
 
 ## Scoring
 

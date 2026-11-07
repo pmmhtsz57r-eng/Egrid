@@ -98,14 +98,14 @@ describe('network physics', () => {
   it('isolating a substation de-energises its downstream zones; a transfer restores them', () => {
     const sim = new Simulation(calm());
     run(sim, 1);
-    expect(sim.queue({ type: 'isolateSub', sub: 'S04' }).ok).toBe(true);
+    expect(sim.queue({ type: 'isolateSub', sub: 'S06' }).ok).toBe(true);
     run(sim, 0.2);
     expect(sim.state.zones.Z06.served).toBe(false);
-    expect(sim.state.zones.Z07.served).toBe(false);
-    expect(sim.queue({ type: 'transfer', zone: 'Z07' }).ok).toBe(true);
+    expect(sim.state.zones.Z09.served).toBe(false);
+    expect(sim.queue({ type: 'transfer', zone: 'Z09' }).ok).toBe(true);
     run(sim, 2);
-    expect(sim.state.zones.Z07.served).toBe(true);
-    expect(sim.state.zones.Z07.feed).toBe('alternate');
+    expect(sim.state.zones.Z09.served).toBe(true);
+    expect(sim.state.zones.Z09.feed).toBe('alternate');
     expect(sim.state.zones.Z06.served).toBe(false); // the data centre has no alternative feed
   });
 
@@ -125,8 +125,9 @@ describe('network physics', () => {
     expect(a.state.freq).toBeGreaterThan(50.05);
     const b = new Simulation(calm());
     b.state.gens.G1.setpoint = 110;
-    run(b, 5);
-    expect(b.state.freq).toBeLessThan(49.9);
+    let low = 50;
+    for (let i = 0; i < 50; i++) { b.step(); low = Math.min(low, b.state.freq); }
+    expect(low).toBeLessThan(49.9);
   });
 
   it('under-frequency load shedding disconnects stage-1 zones but spares exempted ones', () => {
@@ -200,12 +201,12 @@ describe('backup generation and crews', () => {
   it('running the data centre on its own generators takes 10 s and frees grid capacity', () => {
     const sim = new Simulation(calm());
     run(sim, 1);
-    const before = sim.state.subs.S04.load;
+    const before = sim.state.subs.S06.load;
     sim.queue({ type: 'startBackup', zone: 'Z06' });
     run(sim, 5);
-    expect(sim.state.subs.S04.load).toBeCloseTo(before, 0);
+    expect(sim.state.subs.S06.load).toBeCloseTo(before, 0);
     run(sim, 6);
-    expect(sim.state.subs.S04.load).toBeLessThan(before - 25);
+    expect(sim.state.subs.S06.load).toBeLessThan(before - 25);
   });
 
   it('closing a line onto a permanent fault trips it again; after a crew repair it holds', () => {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Report } from '../scoring/report';
 import type { Outcome } from '../scoring/score';
-import { drawCard, downloadCard, shareCard } from '../share/card';
+import { cardBlob, drawCard, downloadCard, shareCard } from '../share/card';
 
 interface Props {
   outcome: Outcome;
@@ -28,6 +28,7 @@ export function Results(p: Props) {
   const [stamp, setStamp] = useState(false);
   const [msg, setMsg] = useState('');
   const canvas = useRef<HTMLCanvasElement>(null);
+  const blob = useRef<Blob | null>(null);
 
   useEffect(() => {
     let raf = 0;
@@ -43,7 +44,15 @@ export function Results(p: Props) {
   }, [o.stability]);
 
   useEffect(() => {
-    if (canvas.current) void drawCard(canvas.current, { name: p.name, outcome: o, seed: p.seed, mode: p.mode, timeline: p.timeline, url: p.challengeUrl });
+    const c = canvas.current;
+    if (!c) return;
+    blob.current = null;
+    let live = true;
+    void drawCard(c, { name: p.name, outcome: o, seed: p.seed, mode: p.mode, timeline: p.timeline, url: p.challengeUrl })
+      .then(() => cardBlob(c))
+      .then((b) => { if (live) blob.current = b; })
+      .catch(() => {});
+    return () => { live = false; };
   }, [p.name, o, p.seed, p.mode, p.timeline, p.challengeUrl]);
 
   const flash = (t: string) => {
@@ -62,7 +71,7 @@ export function Results(p: Props) {
   const share = async () => {
     if (!canvas.current) return;
     try {
-      const ok = await shareCard(canvas.current, text, p.challengeUrl);
+      const ok = await shareCard(blob.current ?? canvas.current, text, p.challengeUrl);
       if (!ok) await copy();
     } catch (e) {
       if ((e as Error).name !== 'AbortError') flash('Sharing failed. Try Download or Copy link.');

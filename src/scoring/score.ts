@@ -76,8 +76,8 @@ export function score(sim: Simulation): Outcome {
 
   const lost: string[] = [];
   for (const sub of n.substations) if (s.subs[sub.id].damaged) lost.push(`Transformer ${sub.id} ${sub.name} destroyed`);
-  for (const g of n.generators) if (!s.gens[g.id].online) lost.push(`${g.name} tripped`);
-  for (const c of critical) if (!c.protected) lost.push(`${c.name}: ${Math.round(c.downtime)} s without power`);
+  for (const g of n.generators) if (!s.gens[g.id].online) lost.push(`${g.name} tripped, out for the rest of the incident`);
+  // outages of critical services are reported under critical services, not here
 
   let finalDemand = 0;
   let finalServed = 0;

@@ -63,9 +63,9 @@ function consequence(withIt: Outcome, without: Outcome): string {
   const people = without.peoplePowered - withIt.peoplePowered;
   if (Math.abs(people) >= 2000) bits.push(`${Math.abs(Math.round(people / 1000))}k ${people < 0 ? 'fewer' : 'more'} residents would have had power on average`);
   const lostDiff = without.infrastructureLost.filter((x) => !withIt.infrastructureLost.includes(x) && !x.includes('without power'));
-  if (lostDiff.length) bits.push(lostDiff[0].replace(/^Transformer/, 'transformer'));
+  if (lostDiff.length) bits.push(`this would have happened: ${lostDiff[0]}`);
   const savedEq = withIt.infrastructureLost.filter((x) => !without.infrastructureLost.includes(x) && !x.includes('without power'));
-  if (savedEq.length) bits.push(`it caused: ${savedEq[0].toLowerCase()}`);
+  if (savedEq.length) bits.push(`this would not have happened: ${savedEq[0]}`);
   if (!bits.length) bits.push(`city stability would have been ${without.stability} instead of ${withIt.stability}`);
   return bits.slice(0, 2).join('; ');
 }
@@ -100,19 +100,29 @@ function opportunities(sc: ScenarioDef, played: Simulation, rec: TimedAction[]):
     for (const t of [0, 1, 2]) out.push({ tick: windAt + t, action: { type: 'setpoint', gen: 'G3', delta: 10 } });
   }
   const gas = s.alerts.find((a) => a.key.startsWith('gas-'));
-  if (gas?.subject && !did((a) => a.type === 'investigate' && a.target === gas.subject)) out.push({ tick: gas.tick + 2, action: { type: 'investigate', target: gas.subject } });
-  // the relief tool's first suggestion for the first overload the player saw
+  if (gas?.subject && !did((a) => a.type === 'investigate' && a.target === gas.subject)) out.push({ tick: gas.tick + REACTION_TICKS, action: { type: 'investigate', target: gas.subject } });
+  // the relief tool's first suggestion for the first overload the player saw, as it stood a
+  // reaction time later; skipped when the player used that control anyway (adding a second
+  // press of a switch such as a transfer would undo theirs)
   const ol = s.alerts.find((a) => a.key.startsWith('ol-'));
   if (ol?.subject) {
-    const at = Simulation.replay(sc, rec, ol.tick + 1);
+    const tick = ol.tick + REACTION_TICKS;
+    const at = Simulation.replay(sc, rec.filter((r) => r.tick < tick), tick);
     const best = at.reliefOptions(ol.subject, 1)[0];
-    if (best) out.push({ tick: ol.tick + 10, action: best.action });
+    const sameControl = (a: Action) => JSON.stringify(a) === JSON.stringify(best.action) || (switchKey(a) !== null && switchKey(a) === switchKey(best.action));
+    if (best && !did(sameControl)) out.push({ tick, action: best.action });
   }
   const fcrit = cue('f-crit');
   if (fcrit !== undefined && !did((a) => a.type === 'setpoint' && a.delta > 0 && a.gen === 'G1')) {
-    out.push({ tick: fcrit + 5, action: { type: 'setpoint', gen: 'G1', delta: 10 } });
+    out.push({ tick: fcrit + REACTION_TICKS, action: { type: 'setpoint', gen: 'G1', delta: 10 } });
   }
   return out;
+}
+
+/** Controls where a second press reverses the first. */
+function switchKey(a: Action): string | null {
+  if (a.type === 'curtail' || a.type === 'protect' || a.type === 'transfer') return `${a.type}-${a.zone}`;
+  return null;
 }
 
 function groupKey(t: TimedAction) {

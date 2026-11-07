@@ -19,7 +19,7 @@ export const UFLS_DELAY = 0.3;
 /** Decisions per shift. Keeps every recording small enough to travel in a challenge link. */
 export const MAX_ACTIONS = 400;
 /** Over-speed (load rejection) response of synchronous units, fraction of rating per second. */
-export const OVERSPEED_RATE = 0.5;
+export const OVERSPEED_RATE = 1.0;
 /** Minimum time between two UFLS stages operating (stage grading), so the frequency can respond before more load is cut. */
 export const UFLS_GRADE = 0.2;
 export const GEN_UF_TRIP = 47.5;
@@ -156,6 +156,7 @@ export class Simulation {
 
   /** Queue an action for the next tick. Returns false (and does nothing) if it is not allowed now. */
   queue(action: Action): Check {
+    if (this.recording.length + this.pending.length >= MAX_ACTIONS) return { ok: false, reason: `Decision limit reached (${MAX_ACTIONS} per shift).` };
     const c = this.check(action);
     if (c.ok) this.pending.push(action);
     return c;
@@ -208,7 +209,6 @@ export class Simulation {
     const s = this.state;
     if (s.ended) return { ok: false, reason: 'The incident is over.' };
     const no = (reason: string): Check => ({ ok: false, reason });
-    if (this.recording.length + this.pending.length >= MAX_ACTIONS) return no(`Decision limit reached (${MAX_ACTIONS} per shift).`);
     switch (a.type) {
       case 'setpoint': {
         const g = this.net.generators.find((x) => x.id === a.gen);
@@ -816,6 +816,20 @@ export class Simulation {
       if (!islands.has(root)) islands.set(root, []);
       islands.get(root)!.push(g.id);
     }
+    // Grid-following wind inverters need a synchronous machine to follow: an island that holds
+    // only wind cannot keep a voltage or frequency, so its inverters disconnect at once.
+    for (const [root, ids] of [...islands]) {
+      if (ids.some((id) => n.generators.find((g) => g.id === id)!.kind !== 'wind')) continue;
+      for (const id of ids) {
+        const gs = s.gens[id];
+        gs.online = false;
+        gs.trip = 'islanded without a synchronous machine to follow';
+        gs.pm = 0;
+        gs.pe = 0;
+        this.alert('critical', `${n.generators.find((g) => g.id === id)!.name} disconnected: cut off from the rest of the grid, its inverters have nothing to follow.`, id, `gtrip-${id}`);
+      }
+      islands.delete(root);
+    }
 
     // energised buses
     const energisedRoot = (busId: string) => islands.has(comp[this.busIndex.get(busId)!]);
@@ -1047,7 +1061,7 @@ export class Simulation {
     const f = s.freq;
     if (f > 0 && f < 49.5) this.alert('warning', `Grid frequency ${f.toFixed(2)} Hz: generation is not keeping up with demand.`, undefined, 'f-low');
     else if (f > 49.7) this.rearm('f-low');
-    if (f > 0 && f < 49.2) this.alert('critical', `Grid frequency ${f.toFixed(2)} Hz: automatic load shedding starts at 49.0 Hz.`, undefined, 'f-crit');
+    if (f > 0 && f < 49.2) this.alert('critical', f < 49.0 ? `Grid frequency ${f.toFixed(2)} Hz: automatic load shedding is operating.` : `Grid frequency ${f.toFixed(2)} Hz: automatic load shedding starts at 49.0 Hz.`, undefined, 'f-crit');
     else if (f > 49.5) this.rearm('f-crit');
     if (f > 50.6) this.alert('warning', `Grid frequency ${f.toFixed(2)} Hz: too much generation. Generators trip at ${GEN_OF_TRIP} Hz.`, undefined, 'f-high');
     else if (f < 50.3) this.rearm('f-high');
@@ -1072,7 +1086,10 @@ export class Simulation {
         // Downwards the full droop range applies (down to the unit's minimum), and over-speed
         // control closes valves or guide vanes at up to half the rating per second.
         const droop = clamp((-(gs.freq - F0) / (DROOP * F0)) * g.capacity, -g.capacity, g.droopLimit * g.capacity);
-        target = clamp(gs.setpoint + droop, g.min, g.capacity * g.emergencyRating);
+        // Above 51 Hz the unit may drop below its minimum stable output to no-load (load
+        // rejection), so a lightly loaded island settles instead of over-speeding.
+        const floor = gs.freq > F0 + 1 ? 0 : g.min;
+        target = clamp(gs.setpoint + droop, floor, g.capacity * g.emergencyRating);
         down = Math.max(g.ramp * 6, OVERSPEED_RATE * g.capacity) * DT;
       }
       gs.pm += clamp(target - gs.pm, -down, up);

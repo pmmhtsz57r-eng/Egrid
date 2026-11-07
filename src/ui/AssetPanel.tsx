@@ -96,10 +96,11 @@ export function AssetPanel({ sim, id, onAct, onSelect, onClose }: Props) {
     const fed = n.zones.filter((z) => sim.feedingSub(z.id) === sub.id);
     const lines = n.lines.filter((l) => l.from === sub.id || l.to === sub.id);
     const known = s.known[sub.id];
-    const eta = xfmrEta(t.temp, t.loading);
     // Until the analyst finds a drifting sensor, the operator sees only the sensor reading.
     const driftKnown = !!known?.includes('drifting');
     const shown = driftKnown ? t.loading : t.measured;
+    // the trip forecast can only use what the operator can see (honest oil temperature, the loading reading)
+    const eta = xfmrEta(t.temp, shown);
     const level = t.damaged ? 'dead' : t.tripped || !t.closed ? 'dead' : t.temp > 120 || shown > 1 ? 'crit' : t.temp > 105 ? 'warn' : 'ok';
     body = (
       <>

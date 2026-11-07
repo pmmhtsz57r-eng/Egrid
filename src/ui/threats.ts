@@ -84,7 +84,7 @@ export function threats(sim: Simulation): Threat[] {
       out.push({ key: `hot-${sub.id}`, id: sub.id, level: damaging || eta < 10 ? 'critical' : 'warning', title: `${sub.id} transformer ${Math.round(t.temp)} °C`, detail, eta: damaging ? Math.min(eta, 8) : eta });
     } else if (t.measured > 1) {
       const driftKnown = !!s.known[sub.id]?.includes('drifting');
-      if (!driftKnown) out.push({ key: `ld-${sub.id}`, id: sub.id, level: 'warning', title: `${sub.id} reports ${Math.round(t.measured * 100)}% load`, detail: `But the oil is only ${Math.round(t.temp)} °C. Investigate before acting?`, eta: 40 });
+      if (!driftKnown) out.push({ key: `ld-${sub.id}`, id: sub.id, level: 'warning', title: `${sub.id} reports ${Math.round(t.measured * 100)}% load`, detail: 'Check the oil temperature, or investigate before acting.', eta: 40 });
       else if (t.loading > 1) out.push({ key: `ld-${sub.id}`, id: sub.id, level: 'warning', title: `${sub.id} truly at ${Math.round(t.loading * 100)}% load`, detail: 'Sensor is faulty, but the real loading is still high. Move load away.', eta: 30 });
     }
     if (s.alertKeys[`gas-${sub.id}`] !== undefined && !s.known[sub.id]) {
@@ -103,7 +103,7 @@ export function threats(sim: Simulation): Threat[] {
       else if (!zs.served && zs.backup !== 'running') out.push({ key: `ups-${z.id}`, id: z.id, level: 'critical', title: `${c.name} on battery`, detail: `${Math.ceil(zs.ups)} s left${zs.backup === 'starting' ? ', generators starting' : ''}.`, eta: zs.ups });
       else if (zs.criticalDegraded) out.push({ key: `deg-${z.id}`, id: z.id, level: 'warning', title: `${c.name} degraded`, detail: 'Supply voltage below minimum: trains slowed. Relieve its substation.', eta: 30 });
       if (zs.atsFailed && zs.criticalUp && s.time > 6.9) out.push({ key: `ats-${z.id}`, id: z.id, level: 'warning', title: `${c.name}: backup won't auto-start`, detail: sim.crewOn(z.id) ? 'Crew on the way.' : 'Send a crew before this hospital loses its feed.', eta: 45 });
-      if (z.id === 'Z06' && zs.backup === 'off' && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: 'Generators are manual. Running on them protects 112 routing and takes 30 MW off Westpark, in the west.', eta: 60 });
+      if (z.id === 'Z06' && zs.backup === 'off' && zs.served && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: 'Generators are manual. Running on them protects 112 routing and takes 30 MW off Südstadt, at the far end of the west-to-east lines.', eta: 60 });
     }
     if (zs.shedBy === 'ufls' && !zs.breaker) out.push({ key: `ufls-${z.id}`, id: z.id, level: 'info', title: `${z.name} shed automatically`, detail: `${(z.population / 1000).toFixed(0)}k residents dark. Reconnect when there is headroom.`, eta: 70 });
   }
@@ -120,7 +120,7 @@ function headroom(sim: Simulation): string {
     .filter((x) => x.mw >= 5)
     .sort((a, b) => busX(sim, b.g.bus) - busX(sim, a.g.bus));
   if (!spare.length) return 'No generation headroom left: reduce demand.';
-  return 'Headroom: ' + spare.map((x) => `${x.g.short} +${Math.round(x.mw)} MW`).join(', ') + '.';
+  return 'Headroom: ' + spare.map((x) => `${x.g.short} +${Math.round(x.mw)} MW${busX(sim, x.g.bus) < 0 ? ' (west: loads the lines eastwards)' : ''}`).join(', ') + '.';
 }
 
 const busX = (sim: Simulation, id: string) => sim.net.buses.find((b) => b.id === id)?.pos[0] ?? 0;

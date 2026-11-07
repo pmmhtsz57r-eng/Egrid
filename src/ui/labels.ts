@@ -25,11 +25,23 @@ export class LabelLayer {
 
   update(sim: Simulation | null, selected: string | null, show: boolean) {
     const s = sim?.state;
+    // HUD panels that labels must not draw over or under
+    const blockers: DOMRect[] = [];
+    if (show) for (const b of document.querySelectorAll('.hud .topbar, .hud .gauge, .hud .panel, .sheet-tabs')) {
+      const r = b.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) blockers.push(r);
+    }
+    const root = this.els.values().next().value?.parentElement?.getBoundingClientRect();
+    const covered = (x: number, y: number) => {
+      const px = x + (root?.left ?? 0);
+      const py = y + (root?.top ?? 0);
+      return blockers.some((r) => px > r.left - 40 && px < r.right + 40 && py > r.top && py - 22 < r.bottom);
+    };
     for (const a of this.city.anchors) {
       const el = this.els.get(a.id);
       if (!el) continue;
       this.city.project(a.pos, this.tmp);
-      if (!show || !this.tmp.visible) {
+      if (!show || !this.tmp.visible || covered(this.tmp.x, this.tmp.y)) {
         el.style.display = 'none';
         continue;
       }
@@ -40,8 +52,9 @@ export class LabelLayer {
       if (s && sim) {
         if (a.kind === 'sub') {
           const t = s.subs[a.id];
-          text = `${a.id} ${t.damaged ? 'DESTROYED' : t.tripped ? 'TRIPPED' : !t.closed ? 'OFF' : `${Math.round(t.measured * 100)}%`}`;
-          cls = t.damaged || t.tripped || !t.closed || !t.energised ? 'dead' : t.temp > 120 || t.measured > 1 ? 'crit' : t.temp > 105 || t.measured > 0.9 ? 'warn' : 'ok';
+          const L = s.known[a.id]?.includes('drifting') ? t.loading : t.measured;
+          text = `${a.id} ${t.damaged ? 'DESTROYED' : t.tripped ? 'TRIPPED' : !t.closed ? 'OFF' : `${Math.round(L * 100)}%`}`;
+          cls = t.damaged || t.tripped || !t.closed || !t.energised ? 'dead' : t.temp > 120 || L > 1 ? 'crit' : t.temp > 105 || L > 0.9 ? 'warn' : 'ok';
         } else if (a.kind === 'gen') {
           const g = s.gens[a.id];
           text = `${sim.label(a.id)} ${g.online ? `${Math.round(g.pe)} MW` : 'TRIPPED'}`;

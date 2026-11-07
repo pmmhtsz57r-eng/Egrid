@@ -58,8 +58,8 @@ export function Hud(p: Props) {
           <div className="dial"><span className="z49" /><span className="z51" /><i style={{ left: `${50 + needle * 50}%` }} /></div>
         </div>
         <div className="gauge">
-          <label>GENERATION / DEMAND</label>
-          <div className="big">{Math.round(s.totalGen)}<small>/ {Math.round(s.totalDemand)} MW</small></div>
+          <label>GENERATION / LOAD SERVED</label>
+          <div className="big">{Math.round(s.totalGen)}<small>/ {Math.round(s.totalServed)} MW{s.totalDemand - s.totalServed > 1 ? ` · ${Math.round(s.totalDemand - s.totalServed)} MW cut off` : ''}</small></div>
           <div className="split">{sim.net.generators.map((g) => (
             <button key={g.id} className={`gen ${s.gens[g.id].online ? '' : 'off'}`} onClick={() => p.onSelect(g.id)}>{g.short} <b>{Math.round(s.gens[g.id].pe)}</b></button>
           ))}</div>
@@ -160,7 +160,7 @@ function AssetList({ sim, onSelect, selected }: { sim: Simulation; onSelect: (id
   ], [sim]);
   const status = (id: string) => {
     if (s.gens[id]) return s.gens[id].online ? `${Math.round(s.gens[id].pe)} MW` : 'TRIPPED';
-    if (s.subs[id]) { const t = s.subs[id]; return t.damaged ? 'DESTROYED' : t.tripped ? 'TRIPPED' : !t.closed ? 'ISOLATED' : `${Math.round(t.measured * 100)}% · ${Math.round(t.temp)}°`; }
+    if (s.subs[id]) { const t = s.subs[id]; return t.damaged ? 'DESTROYED' : t.tripped ? 'TRIPPED' : !t.closed ? 'ISOLATED' : `${Math.round((s.known[id]?.includes('drifting') ? t.loading : t.measured) * 100)}% · ${Math.round(t.temp)}°`; }
     if (s.zones[id]) return s.zones[id].served ? 'ON' : 'DARK';
     if (s.lines[id]) { const l = s.lines[id]; return l.tripped ? 'TRIPPED' : !l.closed ? 'OPEN' : `${Math.round(l.loading * 100)}%`; }
     return '';

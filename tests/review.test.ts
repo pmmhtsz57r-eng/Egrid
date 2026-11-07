@@ -74,3 +74,58 @@ describe('fixes from review round 1', () => {
     expect(sim.state.internal.eventsDone).toBeGreaterThan(0);
   });
 });
+
+describe('fixes from review round 2', () => {
+  const hints = (seed: number): TimedAction[] => [
+    ...[50, 51, 52].map((tick) => ({ tick, action: { type: 'setpoint' as const, gen: 'G3', delta: 10 } })),
+    { tick: 90, action: { type: 'dispatchCrew', target: createCrisis(seed).atsFailed } },
+    { tick: 130, action: { type: 'startBackup', zone: 'Z06' } },
+  ];
+
+  it('following the in-game hints beats doing nothing on most storms and never blacks the city out', () => {
+    let better = 0;
+    for (const seed of SEEDS) {
+      const idle = score(Simulation.replay(createCrisis(seed), [])).stability;
+      const sim = Simulation.replay(createCrisis(seed), hints(seed));
+      expect(sim.state.collapsed).toBe(false);
+      if (score(sim).stability > idle) better++;
+    }
+    expect(better).toBeGreaterThanOrEqual(Math.ceil(SEEDS.length * 0.8));
+  });
+
+  it('starting the data-centre generators at the UPS warning helps on average', () => {
+    let idle = 0, dc = 0;
+    for (const seed of SEEDS) {
+      idle += score(Simulation.replay(createCrisis(seed), [])).stability;
+      dc += score(Simulation.replay(createCrisis(seed), [{ tick: 130, action: { type: 'startBackup', zone: 'Z06' } }])).stability;
+    }
+    expect(dc).toBeGreaterThan(idle);
+  });
+
+  it('island frequency stays physical (no wind-only islands, no runaway)', () => {
+    for (const seed of SEEDS.slice(0, 10)) {
+      for (const rec of [[], hints(seed)]) {
+        const sim = new Simulation(createCrisis(seed));
+        let k = 0;
+        while (!sim.state.ended) {
+          while (k < rec.length && rec[k].tick === sim.state.tick) sim.queue(rec[k++].action);
+          sim.step();
+          for (const g of Object.values(sim.state.gens)) if (g.online) {
+            expect(g.freq).toBeGreaterThan(44);
+            expect(g.freq).toBeLessThan(55);
+          }
+        }
+      }
+    }
+  });
+
+  it('the 400th decision is accepted and applied, the 401st refused', () => {
+    const sim = new Simulation(createCrisis(5));
+    for (let i = 0; i < MAX_ACTIONS; i++) {
+      expect(sim.queue({ type: 'protect', zone: 'Z12' }).ok).toBe(true);
+      sim.step();
+    }
+    expect(sim.queue({ type: 'protect', zone: 'Z12' }).ok).toBe(false);
+    expect(sim.state.log.filter((l) => l.ok).length).toBe(MAX_ACTIONS);
+  });
+});

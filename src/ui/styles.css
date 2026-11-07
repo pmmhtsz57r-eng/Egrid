@@ -33,7 +33,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
 .gl-error { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); max-width: 460px; padding: 20px; background: var(--panel-solid); border: 1px solid var(--crit); border-radius: var(--r); z-index: 50; }
 
 /* ---------------------------------------------------------------- labels */
-.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
 .label { position: absolute; left: 0; top: 0; pointer-events: auto; font: 600 11px/1 var(--mono); letter-spacing: 0.04em; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--line-strong); background: rgba(5, 9, 18, 0.72); color: var(--text); white-space: nowrap; backdrop-filter: blur(4px); transition: border-color 0.2s, color 0.2s; }
 .label::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 1px; height: 6px; background: currentColor; opacity: 0.6; }
 .label.ok { color: #bff6ff; }
@@ -355,7 +355,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
   .sheet-tabs button { flex: 1; padding: 10px 6px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font: 600 12px var(--mono); }
   .sheet-tabs button.on { border-color: var(--ok); background: rgba(56, 232, 255, 0.1); }
   .asset { max-height: 100%; }
-  .toast { bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .toast { bottom: auto; top: calc(150px + env(safe-area-inset-top)); }
   .label { font-size: 9px; padding: 3px 5px; }
   .label.zone { display: none; }
   .how { grid-template-columns: 1fr; }
@@ -386,3 +386,5 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
 
 .pause-vol { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; font: 600 12px var(--mono); letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
 .pause-vol input { width: 180px; accent-color: var(--ok); }
+
+.challenge-banner.bad { border-color: var(--crit); }

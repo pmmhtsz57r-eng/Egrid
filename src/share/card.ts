@@ -241,8 +241,9 @@ export async function downloadCard(canvas: HTMLCanvasElement, filename: string) 
 }
 
 /** Native share sheet with the image where supported. Returns false if not supported. */
-export async function shareCard(canvas: HTMLCanvasElement, text: string, url: string): Promise<boolean> {
-  const blob = await cardBlob(canvas);
+export async function shareCard(source: HTMLCanvasElement | Blob, text: string, url: string): Promise<boolean> {
+  // Pass a ready Blob where possible: iOS Safari only allows share() close to the tap.
+  const blob = source instanceof Blob ? source : await cardBlob(source);
   const file = new File([blob], 'blackout-nova-city.png', { type: 'image/png' });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   if (nav.share && nav.canShare?.({ files: [file] })) {

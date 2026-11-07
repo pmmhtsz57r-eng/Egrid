@@ -71,6 +71,7 @@ export function App() {
   const [report, setReport] = useState<Report | null>(null);
   const [best, setBest] = useState<{ best: number; isNew: boolean } | null>(null);
   const [rival, setRival] = useState<RivalInfo | null>(() => readChallenge());
+  const [badLink, setBadLink] = useState(() => /[#&]c=/.test(location.hash) && !readChallenge());
   const [activeRival, setActiveRival] = useState<RivalInfo | null>(null);
   const [run, setRun] = useState<{ seed: number; mode: GameMode }>({ seed: 0, mode: 'crisis' });
   const [glError, setGlError] = useState(false);
@@ -80,7 +81,9 @@ export function App() {
   useEffect(() => {
     const onHash = () => {
       const c = readChallenge();
-      if (c && screenRef.current === 'landing') setRival(c);
+      if (screenRef.current !== 'landing') return;
+      if (c) setRival(c);
+      setBadLink(/[#&]c=/.test(location.hash) && !c);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -329,6 +332,7 @@ export function App() {
           setName={setName}
           onStart={(mode) => begin(mode, mode === 'daily' ? today : randomSeed(), null)}
           challenge={rival}
+          badLink={badLink}
           onAcceptChallenge={() => rival && begin(rival.mode, rival.seed, rival)}
           dailySeed={today}
           dailyBest={store.get().best?.[`daily-${today}`] ?? null}

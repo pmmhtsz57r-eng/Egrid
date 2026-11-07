@@ -90,9 +90,9 @@ export const NOVA_CITY: NetworkDef = {
       pos: [40, -76], size: [40, 14],
     },
     {
-      id: 'Z06', name: 'Kern Data Centre', kind: 'datacentre', primary: 'S04', load: 30, population: 0, uflsStage: 0,
+      id: 'Z06', name: 'Kern Data Centre', kind: 'datacentre', primary: 'S06', load: 30, population: 0, uflsStage: 0,
       critical: { id: 'DC', name: 'Data Centre (112 call routing)', load: 30, dependants: 250_000, backup: { capacity: 32, startDelay: 10, autoStart: false, ups: 40 } },
-      pos: [-84, 74], size: [22, 18],
+      pos: [-6, 82], size: [24, 18],
     },
     { id: 'Z07', name: 'Westpark', kind: 'residential', primary: 'S04', alternate: 'S05', load: 26, population: 34_000, uflsStage: 1, pos: [-40, 34], size: [32, 28] },
     {
@@ -105,7 +105,7 @@ export const NOVA_CITY: NetworkDef = {
       critical: { id: 'H2', name: 'St. Aurel Hospital', load: 5, dependants: 480, backup: { capacity: 5, startDelay: 8, autoStart: true, ups: 12 } },
       pos: [36, 78], size: [26, 22],
     },
-    { id: 'Z10', name: 'Neustadt', kind: 'residential', primary: 'S06', alternate: 'S07', load: 30, population: 38_000, uflsStage: 2, pos: [-8, 80], size: [36, 26] },
+    { id: 'Z10', name: 'Neustadt', kind: 'residential', primary: 'S04', alternate: 'S05', load: 30, population: 38_000, uflsStage: 2, pos: [-82, 76], size: [30, 24] },
     { id: 'Z11', name: 'Flussufer', kind: 'residential', primary: 'S07', alternate: 'S08', load: 25, population: 32_000, uflsStage: 3, pos: [88, -28], size: [30, 30] },
     { id: 'Z12', name: 'Ostend', kind: 'residential', primary: 'S08', alternate: 'S07', load: 25, population: 34_000, uflsStage: 1, pos: [94, 76], size: [30, 28] },
   ],
