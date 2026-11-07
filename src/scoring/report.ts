@@ -1,0 +1,254 @@
+import { Simulation, fmtTime } from '../sim/engine';
+import type { Action, ScenarioDef, TimedAction } from '../sim/types';
+import { score, type Outcome } from './score';
+
+/**
+ * The Disaster Report. Because the simulation is deterministic, the report does not guess
+ * which decisions mattered: it replays the incident without each decision (and with each
+ * missed opportunity added) and measures the difference in city stability.
+ */
+
+export interface DecisionImpact {
+  tick: number;
+  time: string;
+  text: string;
+  delta: number;
+  consequence: string;
+}
+
+export interface Report {
+  outcome: Outcome;
+  idle: Outcome;
+  helped: DecisionImpact[];
+  harmed: DecisionImpact[];
+  missed: DecisionImpact[];
+  /** Distinct decisions made. */
+  decisions: number;
+  /** How many of them were measured one by one (the rest still count in the comparison with doing nothing). */
+  measured: number;
+}
+
+const THRESHOLD = 2;
+
+export function describeAction(sim: Simulation, a: Action): string {
+  const L = (id: string) => sim.label(id);
+  switch (a.type) {
+    case 'setpoint': return `${a.delta > 0 ? 'Raised' : 'Lowered'} ${L(a.gen)} output by ${Math.abs(a.delta)} MW`;
+    case 'shed': return `Shed ${L(a.zone)}`;
+    case 'restore': return `Reconnected ${L(a.zone)}`;
+    case 'transfer': return `Switched the feed of ${L(a.zone)}`;
+    case 'curtail': return `Curtailed ${L(a.zone)}`;
+    case 'protect': return `Exempted ${L(a.zone)} from automatic shedding`;
+    case 'isolateLine': return `Opened line ${a.line} ${L(a.line)}`;
+    case 'closeLine': return `Closed line ${a.line} ${L(a.line)}`;
+    case 'isolateSub': return `Isolated transformer ${a.sub} ${L(a.sub)}`;
+    case 'energiseSub': return `Energised transformer ${a.sub} ${L(a.sub)}`;
+    case 'startBackup': return `Started backup generation at ${L(a.zone)}`;
+    case 'stopBackup': return `Returned ${L(a.zone)} to the grid to save fuel`;
+    case 'dispatchCrew': return `Sent a repair crew to ${L(a.target)}`;
+    case 'investigate': return `Investigated ${a.target} ${L(a.target)}`;
+    case 'mobileGen': return `Deployed the mobile generator to ${L(a.zone)}`;
+  }
+}
+
+/** Plain-language difference between two outcomes: what changes if the decision is reversed. */
+function consequence(withIt: Outcome, without: Outcome): string {
+  // each fact says whether it shows the decision helping (+1) or hurting (-1)
+  const facts: { text: string; sign: 1 | -1 }[] = [];
+  if (without.collapsed && !withIt.collapsed) facts.push({ text: `the city would have suffered a total blackout at ${fmtTime(without.collapseTime)}`, sign: 1 });
+  if (withIt.collapsed && !without.collapsed) facts.push({ text: 'the total blackout would have been avoided', sign: -1 });
+  const lostWithout = without.critical.filter((c) => !c.protected && withIt.critical.find((x) => x.id === c.id)!.protected).map((c) => c.name);
+  const savedWithout = without.critical.filter((c) => c.protected && !withIt.critical.find((x) => x.id === c.id)!.protected).map((c) => c.name);
+  if (lostWithout.length) facts.push({ text: `${lostWithout.join(' and ')} would have lost power`, sign: 1 });
+  if (savedWithout.length) facts.push({ text: `${savedWithout.join(' and ')} would have kept power`, sign: -1 });
+  const lostDiff = without.infrastructureLost.filter((x) => !withIt.infrastructureLost.includes(x));
+  if (lostDiff.length) facts.push({ text: `this would have happened: ${lostDiff[0]}`, sign: 1 });
+  const savedEq = withIt.infrastructureLost.filter((x) => !without.infrastructureLost.includes(x));
+  if (savedEq.length) facts.push({ text: `this would not have happened: ${savedEq[0]}`, sign: -1 });
+  const people = without.peoplePowered - withIt.peoplePowered;
+  if (Math.abs(people) >= 2000) facts.push({ text: `${Math.abs(Math.round(people / 1000))}k ${people < 0 ? 'fewer' : 'more'} residents would have had power on average`, sign: people < 0 ? 1 : -1 });
+
+  const dir = withIt.stability >= without.stability ? 1 : -1;
+  const main = facts.filter((f) => f.sign === dir).map((f) => f.text);
+  const against = facts.find((f) => f.sign !== dir);
+  if (!main.length) {
+    // name the part of the score that moved most in the decision's direction
+    let best = { label: '', d: 0 };
+    const labels = new Set([...without.breakdown, ...withIt.breakdown].map((b) => b.label));
+    for (const label of labels) {
+      const d = (without.breakdown.find((b) => b.label === label)?.points ?? 0) - (withIt.breakdown.find((b) => b.label === label)?.points ?? 0);
+      if (-d * dir > -best.d * dir) best = { label, d };
+    }
+    const what = best.label && best.d !== 0 ? ` (${best.label.toLowerCase()}: ${best.d > 0 ? '+' : ''}${best.d})` : '';
+    main.push(`city stability would have been ${without.stability} instead of ${withIt.stability}${what}`);
+  }
+  return main.slice(0, 2).join('; ') + (against && main.length < 2 ? `, even though ${against.text}` : '');
+}
+
+function play(sc: ScenarioDef, rec: TimedAction[]) {
+  return score(Simulation.replay(sc, rec));
+}
+
+/** A human needs a moment to read a cue and act: candidates are placed this long after it. */
+const REACTION_TICKS = 20;
+
+/**
+ * Candidate interventions a strong operator might have made. Each is placed a reaction time
+ * after the alert that cued it in the player's own run, so nothing relies on hindsight.
+ */
+function opportunities(sc: ScenarioDef, played: Simulation, rec: TimedAction[]): TimedAction[] {
+  const s = played.state;
+  const out: TimedAction[] = [];
+  const did = (pred: (a: Action) => boolean) => rec.some((r) => pred(r.action));
+  const cue = (prefix: string) => s.alerts.find((a) => a.key.startsWith(prefix))?.tick;
+  const notice = (subject: string) => s.alerts.find((a) => a.key.startsWith('notice-') && a.subject === subject && a.tick > 0)?.tick;
+  const after = (t: number | undefined) => (t === undefined ? undefined : t + REACTION_TICKS);
+
+  const ats = sc.atsFailed;
+  const atsAt = after(notice(ats));
+  if (atsAt !== undefined && !did((a) => a.type === 'dispatchCrew' && a.target === ats)) out.push({ tick: atsAt, action: { type: 'dispatchCrew', target: ats } });
+  const dcAt = after(notice('Z06'));
+  if (dcAt !== undefined && !did((a) => a.type === 'startBackup' && a.zone === 'Z06')) out.push({ tick: dcAt, action: { type: 'startBackup', zone: 'Z06' } });
+  const windAt = after(notice('G2'));
+  if (windAt !== undefined && !did((a) => a.type === 'curtail')) out.push({ tick: windAt, action: { type: 'curtail', zone: 'Z02' } });
+  if (windAt !== undefined && !did((a) => a.type === 'setpoint' && a.gen === 'G3' && a.delta > 0)) {
+    for (const t of [0, 1, 2]) out.push({ tick: windAt + t, action: { type: 'setpoint', gen: 'G3', delta: 10 } });
+  }
+  const gas = s.alerts.find((a) => a.key.startsWith('gas-'));
+  if (gas?.subject && !did((a) => a.type === 'investigate' && a.target === gas.subject)) out.push({ tick: gas.tick + REACTION_TICKS, action: { type: 'investigate', target: gas.subject } });
+  // the relief tool's first suggestion for the first overload the player saw, as it stood a
+  // reaction time later; skipped when the player used that control anyway (adding a second
+  // press of a switch such as a transfer would undo theirs)
+  const ol = s.alerts.find((a) => a.key.startsWith('ol-'));
+  if (ol?.subject) {
+    const tick = ol.tick + REACTION_TICKS;
+    const at = Simulation.replay(sc, rec.filter((r) => r.tick < tick), tick);
+    const best = at.reliefOptions(ol.subject, 1)[0];
+    const sameControl = (a: Action) => JSON.stringify(a) === JSON.stringify(best.action) || (switchKey(a) !== null && switchKey(a) === switchKey(best.action));
+    if (best && !did(sameControl)) out.push({ tick, action: best.action });
+  }
+  const fcrit = cue('f-crit');
+  if (fcrit !== undefined && !did((a) => a.type === 'setpoint' && a.delta > 0 && a.gen === 'G1')) {
+    out.push({ tick: fcrit + REACTION_TICKS, action: { type: 'setpoint', gen: 'G1', delta: 10 } });
+  }
+  return out;
+}
+
+/** Controls where a second press reverses the first. */
+function switchKey(a: Action): string | null {
+  if (a.type === 'curtail' || a.type === 'protect' || a.type === 'transfer') return `${a.type}-${a.zone}`;
+  return null;
+}
+
+
+/** Curtail, protect and transfer are switches: the same action turns them on and off again. */
+const toggleKey = (a: Action) => (a.type === 'curtail' || a.type === 'protect' || a.type === 'transfer' ? `${a.type}-${a.zone}` : null);
+
+/**
+ * Removing one press of a switch would flip the meaning of every later press, so "without
+ * this decision" removes that press and every later press of the same switch.
+ */
+function without(rec: TimedAction[], group: TimedAction[]) {
+  const drop = new Set(group);
+  for (const g of group) {
+    const k = toggleKey(g.action);
+    if (!k) continue;
+    for (const r of rec) if (r.tick >= g.tick && toggleKey(r.action) === k) drop.add(r);
+  }
+  return rec.filter((r) => !drop.has(r));
+}
+
+function describeToggle(sim: Simulation, a: Action, on: boolean) {
+  const name = sim.label((a as { zone: string }).zone);
+  if (a.type === 'curtail') return on ? `Curtailed ${name}` : `Released the curtailment of ${name}`;
+  if (a.type === 'transfer') {
+    const d = sim.zoneDef(a.zone);
+    return on ? `Transferred ${name} to ${d.alternate}` : `Moved ${name} back to its normal feed ${d.primary}`;
+  }
+  return on ? `Exempted ${name} from automatic shedding` : `Removed the shedding exemption for ${name}`;
+}
+
+export function buildReport(sc: ScenarioDef, rec: TimedAction[], maxDecisions = 60): Report {
+  const played = Simulation.replay(sc, rec);
+  const outcome = score(played);
+  const idle = play(sc, []);
+
+  // only actions that actually did something are decisions
+  const applied = played.state.log.filter((l) => l.ok);
+  const appliedRec = rec.filter((r) => applied.some((l) => l.tick === r.tick && JSON.stringify(l.action) === JSON.stringify(r.action)));
+  // Clicks on the same generator in the same direction, each within 3 s of the previous one,
+  // are one decision; everything else is its own decision.
+  const groups = new Map<string, TimedAction[]>();
+  const openChain = new Map<string, { key: string; last: number }>();
+  for (const r of appliedRec) {
+    let k = `${r.tick}-${JSON.stringify(r.action)}`;
+    if (r.action.type === 'setpoint') {
+      const chainId = `sp-${r.action.gen}-${Math.sign(r.action.delta)}`;
+      const c = openChain.get(chainId);
+      if (c && r.tick - c.last <= 30) {
+        k = c.key;
+        c.last = r.tick;
+      } else openChain.set(chainId, { key: k, last: r.tick });
+    }
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(r);
+  }
+  const helped: DecisionImpact[] = [];
+  const harmed: DecisionImpact[] = [];
+  // switch state after each applied press, in order
+  const pressedOn = new Map<TimedAction, boolean>();
+  const state = new Map<string, boolean>();
+  for (const r of appliedRec) {
+    const k = toggleKey(r.action);
+    if (!k) continue;
+    const on = !(state.get(k) ?? false);
+    state.set(k, on);
+    pressedOn.set(r, on);
+  }
+  const entries = [...groups.values()].slice(0, maxDecisions);
+  for (const g of entries) {
+    const alt = play(sc, without(rec, g));
+    const delta = outcome.stability - alt.stability;
+    const first = g[0];
+    const total = first.action.type === 'setpoint' ? g.reduce((a, r) => a + (r.action as { delta: number }).delta, 0) : 0;
+    const text = first.action.type === 'setpoint'
+      ? describeAction(played, { ...first.action, delta: total })
+      : toggleKey(first.action) ? describeToggle(played, first.action, pressedOn.get(first) ?? true)
+        : describeAction(played, first.action);
+    const impact: DecisionImpact = { tick: first.tick, time: fmtTime(first.tick / 10), text, delta, consequence: '' };
+    if (delta >= THRESHOLD) {
+      impact.consequence = `Without it, ${consequence(outcome, alt)}.`;
+      helped.push(impact);
+    } else if (delta <= -THRESHOLD) {
+      impact.consequence = `Without it, ${consequence(outcome, alt)}.`;
+      harmed.push(impact);
+    }
+  }
+  helped.sort((a, b) => b.delta - a.delta);
+  harmed.sort((a, b) => a.delta - b.delta);
+
+  const missed: DecisionImpact[] = [];
+  const seen = new Set<string>();
+  const cands = opportunities(sc, played, rec);
+  // G3 +10 x3 is one opportunity
+  const grouped = new Map<string, TimedAction[]>();
+  for (const c of cands) {
+    const k = c.action.type === 'setpoint' ? `sp-${c.action.gen}` : JSON.stringify(c.action);
+    if (!grouped.has(k)) grouped.set(k, []);
+    grouped.get(k)!.push(c);
+  }
+  for (const [k, g] of grouped) {
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const withIt = play(sc, [...rec, ...g]);
+    const delta = withIt.stability - outcome.stability;
+    if (delta < THRESHOLD) continue;
+    const first = g[0];
+    const total = first.action.type === 'setpoint' ? g.reduce((a, r) => a + (r.action as { delta: number }).delta, 0) : 0;
+    const text = first.action.type === 'setpoint' ? describeAction(played, { ...first.action, delta: total }) : describeAction(played, first.action);
+    missed.push({ tick: first.tick, time: fmtTime(first.tick / 10), text, delta, consequence: `Stability ${withIt.stability} instead of ${outcome.stability}${withIt.collapsed !== outcome.collapsed && !withIt.collapsed ? ', and no total blackout' : ''}.` });
+  }
+  missed.sort((a, b) => b.delta - a.delta);
+
+  return { outcome, idle, helped: helped.slice(0, 4), harmed: harmed.slice(0, 4), missed: missed.slice(0, 3), decisions: groups.size, measured: entries.length };
+}
