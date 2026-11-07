@@ -52,7 +52,8 @@ At 0:00 a storm hits. The seed chooses:
 | Variable | Options |
 | --- | --- |
 | First lightning strike | L9, L6 or L11, permanent or transient fault |
-| Wind-farm storm shutdown | Start 4 to 7 s, falls to 12 to 22 MW over 12 to 16 s, partial recovery after 55 to 65 s |
+| Wind-farm storm shutdown | Early storms (55%): shutdown 8 to 11 s in. Late storms (45%): gusts take a third of the output at about 10 s, full shutdown 30 to 37 s in. Either way it falls to 12 to 22 MW over 12 to 16 s, is announced at 0:00 and again 4 s ahead, and partly recovers later |
+| Data-centre generator fuel | 50 to 62 s at full load (start them too early and they run dry mid-storm) |
 | Hidden incipient transformer fault | S04, S06 or S01 |
 | Lying loading sensor | S03, S07 or S05, over-reads by 50 to 70 points |
 | Hospital whose transfer switch failed its test | Central Hospital or St. Aurel |
@@ -73,7 +74,7 @@ Doing nothing typically ends in automatic load shedding, a stranded railway and 
 | Exempt a zone from automatic shedding | At most 3; the scheme then sheds others or frequency falls further. |
 | Open or close a line | Closing onto a permanent fault trips again and heats the neighbouring transformers. |
 | Isolate or energise a transformer | Protects it, but its zones go dark unless transferred. |
-| Start backup generation | Hospital and data-centre generators take 6 to 10 s; a failed transfer switch needs a crew first. The data centre (at Südstadt, east end of the west-to-east lines) on its own generators frees ~30 MW where it relieves both the frequency and those lines. |
+| Start backup generation | Hospital and data-centre generators take 6 to 10 s; a failed transfer switch needs a crew first. The data centre (at Südstadt, east end of the west-to-east lines) on its own generators frees ~30 MW where it relieves both the frequency and those lines, for as long as its fuel lasts. |
 | Dispatch a repair crew (2 crews) | Travel time from the depot plus 6 to 10 s of work. Repairs lines, transfer switches, resets tripped transformers once cool. |
 | Investigate | 4 s, one at a time. Reveals permanent faults, incipient transformer faults and lying sensors. |
 | Deploy the mobile generator (once) | 8 MW, travel time; powers part of a dark zone or offloads a live one. |
@@ -83,9 +84,9 @@ No action is always right: generation raises frequency but loads lines; transfer
 
 ## 7. Scoring and the Disaster Report
 
-City stability (0 to 100): residents kept powered (40), critical services (25), equipment intact (15), frequency quality (10), supply at the end (10), minus 4 per automatic shedding stage and 5 for an unsafe industrial trip. A total blackout caps it at 15. Ratings: S Grid Guardian (92+), A Control Room Ace (84+), B Steady Hands (72+), C Held the Line, Barely (58+), D Rolling Blackouts (42+), F Lights Out; a collapse is F Total Blackout.
+City stability (0 to 100): residents kept powered (40), critical services (25), equipment intact (15), frequency quality (10), supply at the end (10), minus 4 per automatic shedding stage, minus the industrial curtailment contract (1 point per 300 MW·s curtailed, at most 6) and minus 5 for an unsafe industrial trip. Frequency quality counts time outside 49.7 to 50.3 Hz, the band where the dial turns amber. A total blackout caps it at 15. Ratings: S Grid Guardian (92+), A Control Room Ace (84+), B Steady Hands (72+), C Held the Line, Barely (58+), D Rolling Blackouts (42+), F Lights Out; a collapse is F Total Blackout.
 
-The report replays the run without each decision (helped or harmed, by how many points and why), with each missed opportunity added, and with no decisions at all ("If nobody had touched the controls"). Each missed opportunity (curtail industry, raise the hydro dam, start the data-centre generators, send a crew to the hospital transfer switch, investigate the gas alarm, the relief tool's best answer to the first overload, raise the gas station when frequency is critical) is placed two seconds after the alert that cued it in the player's own run, never earlier. Curtail and protect are switches, so "without this decision" removes that press and every later press of the same switch. Up to 60 decisions are measured one by one; the comparison with doing nothing always covers all of them. All figures are labelled as fictional simulation results. There are no casualty numbers.
+The report replays the run without each decision (helped or harmed, by how many points and why), with each missed opportunity added, and with no decisions at all ("If nobody had touched the controls"). Each missed opportunity (curtail industry, raise the hydro dam, start the data-centre generators, send a crew to the hospital transfer switch, investigate the gas alarm, the relief tool's best answer to the first overload, raise the gas station when frequency is critical) is placed two seconds after the alert that cued it in the player's own run, never earlier. Clicks on the same generator, each within 3 s of the last, are one decision. Curtail and protect are switches, so "without this decision" removes that press and every later press of the same switch. Up to 60 decisions are measured one by one; the comparison with doing nothing always covers all of them. All figures are labelled as fictional simulation results. There are no casualty numbers.
 
 ## 8. UI structure
 

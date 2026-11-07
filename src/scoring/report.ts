@@ -66,7 +66,17 @@ function consequence(withIt: Outcome, without: Outcome): string {
   if (lostDiff.length) bits.push(`this would have happened: ${lostDiff[0]}`);
   const savedEq = withIt.infrastructureLost.filter((x) => !without.infrastructureLost.includes(x) && !x.includes('without power'));
   if (savedEq.length) bits.push(`this would not have happened: ${savedEq[0]}`);
-  if (!bits.length) bits.push(`city stability would have been ${without.stability} instead of ${withIt.stability}`);
+  if (!bits.length) {
+    // name the part of the score that moved most
+    let best = { label: '', d: 0 };
+    for (const b of without.breakdown) {
+      const w = withIt.breakdown.find((x) => x.label === b.label)?.points ?? 0;
+      if (Math.abs(b.points - w) > Math.abs(best.d)) best = { label: b.label, d: b.points - w };
+    }
+    for (const w of withIt.breakdown) if (!without.breakdown.some((b) => b.label === w.label) && Math.abs(w.points) > Math.abs(best.d)) best = { label: w.label, d: -w.points };
+    const what = best.label ? ` (${best.label.toLowerCase()}: ${best.d > 0 ? '+' : ''}${best.d})` : '';
+    bits.push(`city stability would have been ${without.stability} instead of ${withIt.stability}${what}`);
+  }
   return bits.slice(0, 2).join('; ');
 }
 
@@ -125,10 +135,6 @@ function switchKey(a: Action): string | null {
   return null;
 }
 
-function groupKey(t: TimedAction) {
-  // Repeated clicks on the same generator within 3 s are one decision.
-  return t.action.type === 'setpoint' ? `sp-${t.action.gen}-${Math.sign(t.action.delta)}-${Math.floor(t.tick / 30)}` : `${t.tick}-${JSON.stringify(t.action)}`;
-}
 
 /** Curtail and protect are switches: the same action turns them on and off again. */
 const toggleKey = (a: Action) => (a.type === 'curtail' || a.type === 'protect' ? `${a.type}-${a.zone}` : null);
@@ -161,9 +167,20 @@ export function buildReport(sc: ScenarioDef, rec: TimedAction[], maxDecisions = 
   // only actions that actually did something are decisions
   const applied = played.state.log.filter((l) => l.ok);
   const appliedRec = rec.filter((r) => applied.some((l) => l.tick === r.tick && JSON.stringify(l.action) === JSON.stringify(r.action)));
+  // Clicks on the same generator in the same direction, each within 3 s of the previous one,
+  // are one decision; everything else is its own decision.
   const groups = new Map<string, TimedAction[]>();
+  const openChain = new Map<string, { key: string; last: number }>();
   for (const r of appliedRec) {
-    const k = groupKey(r);
+    let k = `${r.tick}-${JSON.stringify(r.action)}`;
+    if (r.action.type === 'setpoint') {
+      const chainId = `sp-${r.action.gen}-${Math.sign(r.action.delta)}`;
+      const c = openChain.get(chainId);
+      if (c && r.tick - c.last <= 30) {
+        k = c.key;
+        c.last = r.tick;
+      } else openChain.set(chainId, { key: k, last: r.tick });
+    }
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k)!.push(r);
   }

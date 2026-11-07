@@ -38,6 +38,7 @@ export interface Outcome {
 const CRITICAL_WEIGHT: Record<string, number> = { H1: 7, H2: 7, DC: 5, ES: 3, R02: 3 };
 /** Seconds of outage after which a critical service scores zero. */
 const CRITICAL_TOLERANCE = 20;
+export const CURTAIL_MWS_PER_POINT = 300;
 
 export const RATINGS: { min: number; grade: string; title: string }[] = [
   { min: 92, grade: 'S', title: 'GRID GUARDIAN' },
@@ -97,7 +98,9 @@ export function score(sim: Simulation): Outcome {
   const pFreq = 10 * clamp01(1 - m.freqOutside / duration) * (m.minFreq < 49.0 ? 0.5 : 1);
   const pEnd = 10 * restored;
   const pUfls = -4 * s.uflsStage;
-  let stability = pPeople + pCritical + pEquipment + pFreq + pEnd + pUfls - (m.unsafeTrip ? 5 : 0);
+  // the curtailment contract is paid per MWh: about 1 point per 300 MW·s, at most 6
+  const pCurtail = -Math.min(6, m.curtailedMWs / CURTAIL_MWS_PER_POINT);
+  let stability = pPeople + pCritical + pEquipment + pFreq + pEnd + pUfls + pCurtail - (m.unsafeTrip ? 5 : 0);
   if (s.collapsed) stability = Math.min(stability, 15);
   stability = Math.max(0, Math.min(100, Math.round(stability)));
   const r = rate(stability, s.collapsed);
@@ -126,6 +129,7 @@ export function score(sim: Simulation): Outcome {
       { label: 'Frequency quality', points: Math.round(pFreq), max: 10 },
       { label: 'Supply at the end', points: Math.round(pEnd), max: 10 },
       ...(pUfls ? [{ label: 'Automatic load shedding', points: pUfls, max: 0 }] : []),
+      ...(pCurtail <= -0.5 ? [{ label: 'Industrial curtailment paid', points: Math.round(pCurtail), max: 0 }] : []),
       ...(m.unsafeTrip ? [{ label: 'Unsafe industrial trip', points: -5, max: 0 }] : []),
     ],
   };

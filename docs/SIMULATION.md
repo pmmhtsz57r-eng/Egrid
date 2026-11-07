@@ -32,7 +32,9 @@ with `H` the inertia constant and `S` the rating of each machine (wind has a nea
 ## Generators
 
 - **Governors**: droop of 4% (2 Hz for 100% output). Upward response limited to 8% (gas) or 12% (hydro) of rating. Downward the full droop range applies, down to the unit's minimum stable output (gas 20 MW, hydro 10 MW), and over-speed control closes valves at up to 100% of rating per second, so an island left with too much generation settles instead of tripping. Above 51 Hz a unit may drop below its minimum stable output to no-load (load rejection).
-- **Wind in an island**: the wind farm's inverters are grid-following. If a line trip leaves it in an island with no synchronous machine, it disconnects at once rather than trying to hold a frequency it cannot set.
+- **No load left**: a unit whose island has no load drops to speed-no-load on its own breaker and waits to be reconnected.
+- **Synchro-check**: closing a line between two live islands is refused when their frequencies differ by more than 0.5 Hz.
+- **Wind in an island**: the wind farm's inverters are grid-following. If a line trip leaves it in an island with no synchronous machine, it disconnects at once rather than trying to hold a frequency it cannot set, and reconnects (ramping from zero) as soon as it is joined again to an island with a synchronous machine.
 - **Ramp limits**: gas 3 MW/s, hydro 8 MW/s, wind 20 MW/s (wind follows the available-wind curve and can only curtail).
 - **Emergency rating**: the gas station may run to 110% for 25 s, then trips on exhaust over-temperature.
 - **Frequency protection**: a machine trips after 1 s below 47.5 Hz or above 52 Hz.
@@ -49,7 +51,7 @@ with `H` the inertia constant and `S` the rating of each machine (wind has a nea
 
 - Base demand 290 MW for 250,000 fictional residents, growing 5% over the 90 s (evening peak), plus a 6 MW rail step.
 - **Cold-load pickup**: a zone reconnected after more than 3 s off draws up to 40% extra, decaying over 10 s.
-- **Curtailment**: the industrial district ramps to its 9 MW process minimum over 12 s; disconnecting it outright is an unsafe trip.
+- **Curtailment**: the industrial district ramps to its 9 MW process minimum over 12 s and is paid per MW·s curtailed (a score cost); disconnecting it outright is an unsafe trip.
 
 ## Critical services
 
@@ -57,7 +59,7 @@ with `H` the inertia constant and `S` the rating of each machine (wind has a nea
 | --- | --- | --- | --- |
 | Central Hospital (H1) | 6 MW | 6 MW, auto, 8 s start | 12 s |
 | St. Aurel Hospital (H2) | 5 MW | 5 MW, auto, 8 s start | 12 s |
-| Kern Data Centre, 112 call routing (DC) | 30 MW | 32 MW, manual, 10 s start | 32 to 42 s |
+| Kern Data Centre, 112 call routing (DC), at Südstadt | 30 MW | 32 MW, manual, 10 s start, fuel for 50 to 62 s | 32 to 42 s |
 | Emergency Services HQ (ES) | 3 MW | 3 MW, auto, 6 s start | 20 s |
 | Railway R02 | 14 MW | none; degraded below 95.5% supply voltage | none |
 

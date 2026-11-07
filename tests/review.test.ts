@@ -4,7 +4,8 @@ import { createCrisis } from '../src/scenario/crisis';
 import { score } from '../src/scoring/score';
 import { buildReport } from '../src/scoring/report';
 import { decodeChallenge, encodeChallenge } from '../src/game/challenge';
-import type { TimedAction } from '../src/sim/types';
+import type { Action, TimedAction } from '../src/sim/types';
+import { threats } from '../src/ui/threats';
 
 const SEEDS = Array.from({ length: 20 }, (_, i) => (i + 1) * 7919);
 
@@ -127,5 +128,72 @@ describe('fixes from review round 2', () => {
     }
     expect(sim.queue({ type: 'protect', zone: 'Z12' }).ok).toBe(false);
     expect(sim.state.log.filter((l) => l.ok).length).toBe(MAX_ACTIONS);
+  });
+});
+
+describe('fixes from review round 3', () => {
+  /** A player who reads Most Urgent and acts on it two seconds later, one action at a time. */
+  function reader(seed: number) {
+    const sim = new Simulation(createCrisis(seed));
+    const seen: Record<string, number> = {};
+    let free = 0;
+    while (!sim.state.ended) {
+      const t = sim.state.tick;
+      const list = threats(sim);
+      for (const th of list) seen[th.key] ??= t;
+      if (t >= free) for (const th of list) {
+        if (t - seen[th.key] < 20) continue;
+        let a: Action | null = null;
+        if (th.key === 'freq-low' || th.key === 'wind-drop') a = sim.state.gens.G3.setpoint < 80 ? { type: 'setpoint', gen: 'G3', delta: 10 } : null;
+        else if (th.key.startsWith('ol-')) a = sim.reliefOptions(th.id, 1)[0]?.action ?? null;
+        else if (th.key.startsWith('ats-')) a = { type: 'dispatchCrew', target: th.id };
+        else if (th.key === 'dc-ups') a = { type: 'startBackup', zone: 'Z06' };
+        else if (th.key.startsWith('gas-') || th.key.startsWith('ld-')) a = { type: 'investigate', target: th.id };
+        if (a && sim.check(a).ok) { sim.queue(a); free = t + 15; break; }
+      }
+      sim.step();
+    }
+    return score(sim).stability;
+  }
+  const blind = (seed: number): TimedAction[] => [
+    ...[1, 2, 3].map((tick) => ({ tick, action: { type: 'setpoint' as const, gen: 'G3', delta: 10 } })),
+    { tick: 4, action: { type: 'curtail', zone: 'Z02' } },
+    { tick: 5, action: { type: 'startBackup', zone: 'Z06' } },
+    { tick: 72, action: { type: 'dispatchCrew', target: createCrisis(seed).atsFailed } },
+  ];
+
+  it('reading the alerts beats a memorised opening played before any alert', () => {
+    let r = 0, b = 0, s = 0;
+    for (const seed of SEEDS) {
+      r += reader(seed);
+      const o = score(Simulation.replay(createCrisis(seed), blind(seed)));
+      b += o.stability;
+      if (o.grade === 'S') s++;
+    }
+    expect(r).toBeGreaterThan(b);
+    expect(s).toBeLessThan(SEEDS.length * 0.25);
+  });
+
+  it('a wind farm cut off by opening its only line comes back when the line is closed', () => {
+    const sim = Simulation.replay(createCrisis(7919), [
+      { tick: 300, action: { type: 'isolateLine', line: 'L3' } },
+      { tick: 320, action: { type: 'closeLine', line: 'L3' } },
+    ], 340);
+    expect(sim.state.gens.G2.online).toBe(true);
+  });
+
+  it('the synchro-check refuses to join islands far apart in frequency', () => {
+    const sim = new Simulation(createCrisis(1));
+    sim.state.subs.S04.freq = 48.0;
+    sim.state.subs.S06.freq = 50.2;
+    sim.state.lines.L12.closed = false;
+    expect(sim.check({ type: 'closeLine', line: 'L12' }).ok).toBe(false);
+    sim.state.subs.S04.freq = 50.1;
+    expect(sim.check({ type: 'closeLine', line: 'L12' }).ok).toBe(true);
+  });
+
+  it('a burst of clicks across a 3-second boundary is one decision', () => {
+    const rec: TimedAction[] = [28, 29, 31, 32].map((tick) => ({ tick, action: { type: 'setpoint' as const, gen: 'G3', delta: 10 } }));
+    expect(buildReport(createCrisis(7919), rec).decisions).toBe(1);
   });
 });

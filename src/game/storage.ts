@@ -30,13 +30,13 @@ export const store = {
   set(patch: Partial<Stored>) {
     save({ ...load(), ...patch });
   },
-  recordBest(key: string, score: number): { best: number; isNew: boolean } {
+  recordBest(key: string, score: number): { best: number; isNew: boolean; first: boolean } {
     const s = load();
     const best = s.best ?? {};
     const prev = best[key] ?? -1;
     const isNew = score > prev;
     if (isNew) best[key] = score;
     save({ ...s, best, played: (s.played ?? 0) + 1 });
-    return { best: Math.max(prev, score), isNew: isNew && prev >= 0 };
+    return { best: Math.max(prev, score), isNew: isNew && prev >= 0, first: prev < 0 };
   },
 };

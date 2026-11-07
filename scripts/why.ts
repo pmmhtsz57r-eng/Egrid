@@ -5,6 +5,7 @@ const strat: Record<string, (seed: number) => TimedAction[]> = {
   idle: () => [], curtail: () => [{ tick: 20, action: { type: 'curtail', zone: 'Z02' } }],
   dc: () => [{ tick: 120, action: { type: 'startBackup', zone: 'Z06' } }],
   combo: (s) => [{ tick: 20, action: { type: 'curtail', zone: 'Z02' } }, { tick: 120, action: { type: 'startBackup', zone: 'Z06' } }],
+  g1g3: () => [20, 21, 22].flatMap((t) => [{ tick: t, action: { type: 'setpoint' as const, gen: 'G3', delta: 10 } }, { tick: t + 30, action: { type: 'setpoint' as const, gen: 'G1', delta: 10 } }]),
   g3: () => [20, 21, 22].map((t) => ({ tick: t, action: { type: 'setpoint', gen: 'G3', delta: 10 } })),
 };
 const which = process.argv[2] ?? 'curtail';

@@ -69,7 +69,7 @@ export function App() {
   const [count, setCount] = useState(3);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [report, setReport] = useState<Report | null>(null);
-  const [best, setBest] = useState<{ best: number; isNew: boolean } | null>(null);
+  const [best, setBest] = useState<{ best: number; isNew: boolean; first?: boolean } | null>(null);
   const [rival, setRival] = useState<RivalInfo | null>(() => readChallenge());
   const [badLink, setBadLink] = useState(() => /[#&]c=/.test(location.hash) && !readChallenge());
   const [activeRival, setActiveRival] = useState<RivalInfo | null>(null);

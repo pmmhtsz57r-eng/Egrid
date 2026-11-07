@@ -16,6 +16,11 @@ export const LOAD_DAMPING = 1.5;
 export const DROOP = 0.04;
 export const UFLS_STAGES = [49.0, 48.7, 48.4] as const;
 export const UFLS_DELAY = 0.3;
+/** Largest frequency difference the synchro-check relay accepts when joining two live islands. */
+export const SYNC_MAX_DF = 0.5;
+/** Normal operating band. The frequency dial turns amber outside it and scoring counts time outside it. */
+export const FREQ_BAND_LOW = 49.7;
+export const FREQ_BAND_HIGH = 50.3;
 /** Decisions per shift. Keeps every recording small enough to travel in a challenge link. */
 export const MAX_ACTIONS = 400;
 /** Over-speed (load rejection) response of synchronous units, fraction of rating per second. */
@@ -125,7 +130,7 @@ export class Simulation {
       zones[z.id] = {
         breaker: true, feed: 'primary', transferTimer: 0, served: true, shedBy: null, demand: z.load, drawn: z.load,
         powered: 1, offTime: 0, coldLoad: 0, curtail: 1, curtailing: false, protected: false,
-        backup: z.critical?.backup ? 'off' : 'none', backupTimer: 0,
+        backup: z.critical?.backup ? 'off' : 'none', backupTimer: 0, fuel: z.id === 'Z06' ? sc.dcFuel : 1e9,
         ups: z.id === 'Z06' ? sc.dcUps : (z.critical?.backup?.ups ?? 0),
         atsFailed: z.id === sc.atsFailed, criticalUp: true, criticalDegraded: false, criticalDown: 0, mobileGen: false,
       };
@@ -146,7 +151,7 @@ export class Simulation {
         servedEnergy: 0, demandEnergy: 0, residentSeconds: 0,
         criticalDown: Object.fromEntries(criticalIds.map((id) => [id, 0])),
         criticalLost: Object.fromEntries(criticalIds.map((id) => [id, -1])),
-        freqOutside: 0, minFreq: F0, maxFreq: F0, peakDark: 0, uflsShed: 0, unsafeTrip: false, timeline: [],
+        freqOutside: 0, curtailedMWs: 0, minFreq: F0, maxFreq: F0, peakDark: 0, uflsShed: 0, unsafeTrip: false, timeline: [],
       },
       log: [],
     };
@@ -160,6 +165,14 @@ export class Simulation {
     const c = this.check(action);
     if (c.ok) this.pending.push(action);
     return c;
+  }
+
+  /** Frequency at a bus, 0 when it is dead. */
+  busFreq(busId: string): number {
+    const s = this.state;
+    if (s.subs[busId]) return s.subs[busId].energised ? s.subs[busId].freq : 0;
+    const g = this.net.generators.find((x) => x.bus === busId);
+    return g && s.gens[g.id].online ? s.gens[g.id].freq : 0;
   }
 
   get done() {
@@ -268,6 +281,11 @@ export class Simulation {
         if (!l) return no('Unknown line.');
         if (l.closed && !l.tripped) return no('Line is already in service.');
         if (this.crewOn(a.line)) return no('A crew is working on this line.');
+        // synchro-check relay: two live islands may only be joined when their frequencies are close
+        const def = this.net.lines.find((x) => x.id === a.line)!;
+        const fa = this.busFreq(def.from);
+        const fb = this.busFreq(def.to);
+        if (fa > 0 && fb > 0 && Math.abs(fa - fb) > SYNC_MAX_DF) return no(`Synchro-check: the two sides run at ${fa.toFixed(2)} and ${fb.toFixed(2)} Hz. Bring them within ${SYNC_MAX_DF} Hz first.`);
         return { ok: true };
       }
       case 'isolateSub': {
@@ -290,6 +308,7 @@ export class Simulation {
         if (!d?.critical?.backup) return no('No backup generation here.');
         if (z.backup === 'running' || z.backup === 'starting') return no('Backup generation is already on.');
         if (z.atsFailed) return no('The transfer switch is faulty. Send a repair crew first.');
+        if (z.fuel <= 0) return no('The on-site fuel tank is empty.');
         return { ok: true };
       }
       case 'dispatchCrew': {
@@ -698,6 +717,14 @@ export class Simulation {
         const rate = (1 - minFrac) / CURTAIL_SECONDS;
         zs.curtail = zs.curtailing ? Math.max(minFrac, zs.curtail - rate * DT) : Math.min(1, zs.curtail + rate * DT);
       }
+      if (zs.backup === 'running' && zs.fuel < 1e8) {
+        zs.fuel = Math.max(0, zs.fuel - DT);
+        if (zs.fuel <= 15 && zs.fuel > 0) this.alert('warning', `${z.critical!.name}: on-site fuel for ${Math.ceil(zs.fuel)} s left. It will fall back on the grid.`, z.id, `fuel-low-${z.id}`);
+        if (zs.fuel <= 0) {
+          zs.backup = 'off';
+          this.alert('critical', `${z.critical!.name}: on-site generators out of fuel. ${z.critical!.load} MW back on the grid.`, z.id, `fuel-out-${z.id}`);
+        }
+      }
       if (zs.backup === 'starting') {
         zs.backupTimer -= DT;
         if (zs.backupTimer <= 1e-9) {
@@ -816,6 +843,23 @@ export class Simulation {
       if (!islands.has(root)) islands.set(root, []);
       islands.get(root)!.push(g.id);
     }
+    // A wind farm that dropped out for lack of a synchronous machine reconnects once its bus is
+    // joined again to an island that has one.
+    for (const g of n.generators) {
+      const gs = s.gens[g.id];
+      if (gs.online || g.kind !== 'wind' || !gs.trip?.startsWith('islanded')) continue;
+      const root = comp[genBus(g.id)];
+      const ids = islands.get(root);
+      if (!ids?.some((id) => n.generators.find((x) => x.id === id)!.kind !== 'wind')) continue;
+      gs.online = true;
+      gs.trip = undefined;
+      gs.pm = 0;
+      gs.pe = 0;
+      gs.freq = s.gens[ids[0]].freq;
+      ids.push(g.id);
+      this.alert('success', `${g.name} reconnected and is ramping back up.`, g.id, `wind-back-${g.id}-${s.tick}`);
+      this.rearm(`gtrip-${g.id}`);
+    }
     // Grid-following wind inverters need a synchronous machine to follow: an island that holds
     // only wind cannot keep a voltage or frequency, so its inverters disconnect at once.
     for (const [root, ids] of [...islands]) {
@@ -885,8 +929,12 @@ export class Simulation {
       const damp = 1 + (LOAD_DAMPING * (f - F0)) / F0;
       let pl = 0;
       for (const b of buses) pl += busLoad[b] * damp;
-      const dP = pm - pl;
-      const fNext = f + ((F0 * dP) / (2 * hs)) * DT;
+      // An island with no load left: its units drop to speed-no-load on their own breakers
+      // and wait to be reconnected, rather than over-speeding.
+      const noLoad = pl < 0.5;
+      if (noLoad) for (const id of genIds) s.gens[id].pm = 0;
+      const dP = noLoad ? 0 : pm - pl;
+      const fNext = noLoad ? F0 : f + ((F0 * dP) / (2 * hs)) * DT;
       const inj = new Array<number>(buses.length).fill(0);
       for (const id of genIds) {
         const g = n.generators.find((x) => x.id === id)!;
@@ -1176,7 +1224,11 @@ export class Simulation {
       m.minFreq = Math.min(m.minFreq, s.freq);
       m.maxFreq = Math.max(m.maxFreq, s.freq);
     }
-    if (s.freq < 49.8 || s.freq > 50.2) m.freqOutside += DT;
+    if (s.freq < FREQ_BAND_LOW || s.freq > FREQ_BAND_HIGH) m.freqOutside += DT;
+    for (const z of this.net.zones) {
+      const zs = s.zones[z.id];
+      if (z.kind === 'industrial' && zs.served && zs.curtail < 1) m.curtailedMWs += (zs.demand / zs.curtail) * (1 - zs.curtail) * DT;
+    }
     if (s.tick % TICKS_PER_SECOND === 0) m.timeline.push({ t: s.time, freq: s.freq, served: demand ? served / demand : 0, dark });
   }
 }

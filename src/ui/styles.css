@@ -355,7 +355,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
   .sheet-tabs button { flex: 1; padding: 10px 6px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font: 600 12px var(--mono); }
   .sheet-tabs button.on { border-color: var(--ok); background: rgba(56, 232, 255, 0.1); }
   .asset { max-height: 100%; }
-  .toast { bottom: auto; top: calc(150px + env(safe-area-inset-top)); }
+  .toast { bottom: auto; top: 44%; }
+  .gauge .big .cut { display: none; }
   .label { font-size: 9px; padding: 3px 5px; }
   .label.zone { display: none; }
   .how { grid-template-columns: 1fr; }

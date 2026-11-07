@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Simulation } from '../sim/engine';
-import { fmtTime } from '../sim/engine';
+import { fmtTime, FREQ_BAND_HIGH, FREQ_BAND_LOW } from '../sim/engine';
 import type { Action, Alert } from '../sim/types';
 import { AssetPanel } from './AssetPanel';
 import { threats } from './threats';
@@ -28,7 +28,7 @@ export function Hud(p: Props) {
   const [sheet, setSheet] = useState<'urgent' | 'log' | 'assets'>('urgent');
   const dark = Math.round(sim.net.zones.reduce((a, z) => a + z.population * (1 - s.zones[z.id].powered), 0));
   const freq = s.freq;
-  const fcls = freq <= 0 ? 'dead' : freq < 49.2 || freq > 50.8 ? 'crit' : freq < 49.7 || freq > 50.3 ? 'warn' : 'ok';
+  const fcls = freq <= 0 ? 'dead' : freq < 49.2 || freq > 50.8 ? 'crit' : freq < FREQ_BAND_LOW || freq > FREQ_BAND_HIGH ? 'warn' : 'ok';
   const needle = Math.max(-1, Math.min(1, (freq - 50) / 1.5));
   const crit = sim.net.zones.filter((z) => z.critical);
   const alerts = s.alerts.slice(-14).reverse();
@@ -59,7 +59,7 @@ export function Hud(p: Props) {
         </div>
         <div className="gauge">
           <label>GENERATION / LOAD SERVED</label>
-          <div className="big">{Math.round(s.totalGen)}<small>/ {Math.round(s.totalServed)} MW{s.totalDemand - s.totalServed > 1 ? ` · ${Math.round(s.totalDemand - s.totalServed)} MW cut off` : ''}</small></div>
+          <div className="big">{Math.round(s.totalGen)}<small>/ {Math.round(s.totalServed)} MW</small>{s.totalDemand - s.totalServed > 1 && <small className="cut"> · {Math.round(s.totalDemand - s.totalServed)} MW cut off</small>}</div>
           <div className="split">{sim.net.generators.map((g) => (
             <button key={g.id} className={`gen ${s.gens[g.id].online ? '' : 'off'}`} onClick={() => p.onSelect(g.id)}>{g.short} <b>{Math.round(s.gens[g.id].pe)}</b></button>
           ))}</div>

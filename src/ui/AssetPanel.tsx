@@ -162,7 +162,7 @@ export function AssetPanel({ sim, id, onAct, onSelect, onClose }: Props) {
         <div className="actions">
           <Btn sim={sim} onAct={onAct} action={{ type: 'investigate', target: line.id }} label="Investigate" cost="Analyst, 4 s: is there a fault?" />
           {l.closed && !l.tripped
-            ? <Btn sim={sim} onAct={onAct} danger action={{ type: 'isolateLine', line: line.id }} label="Open line" cost="Its flow moves to other lines instantly" />
+            ? <Btn sim={sim} onAct={onAct} danger action={{ type: 'isolateLine', line: line.id }} label="Open line" cost={openLineCost(sim, line.id)} />
             : <Btn sim={sim} onAct={onAct} primary action={{ type: 'closeLine', line: line.id }} label="Close line" cost="Closing onto a fault trips it again" />}
           {(l.tripped || l.faulted) && <Btn sim={sim} onAct={onAct} action={{ type: 'dispatchCrew', target: line.id }} label="Send repair crew" cost={`${crewFree} crew free · ${CREW_WORK.line} s on site`} />}
         </div>
@@ -199,7 +199,7 @@ export function AssetPanel({ sim, id, onAct, onSelect, onClose }: Props) {
           </div>
         )}
         <div className="actions">
-          {c?.backup && <Btn sim={sim} onAct={onAct} primary action={{ type: 'startBackup', zone: zone.id }} label={zone.id === 'Z06' ? 'Start on-site generators' : 'Start backup generators'} cost={`${c.backup.startDelay} s to start · carries ${c.backup.capacity} MW${zone.id === 'Z06' ? ' · cannot re-sync to the grid during the incident' : ''}`} />}
+          {c?.backup && <Btn sim={sim} onAct={onAct} primary action={{ type: 'startBackup', zone: zone.id }} label={zone.id === 'Z06' ? 'Start on-site generators' : 'Start backup generators'} cost={`${c.backup.startDelay} s to start · carries ${c.backup.capacity} MW${z.fuel < 1e8 ? ` · fuel for ${Math.ceil(z.fuel)} s` : ''}`} />}
           {z.atsFailed && <Btn sim={sim} onAct={onAct} primary action={{ type: 'dispatchCrew', target: zone.id }} label="Send crew to transfer switch" cost={`${crewFree} crew free · ${CREW_WORK.ats} s on site`} />}
           {zone.kind === 'industrial' && <Btn sim={sim} onAct={onAct} primary={!z.curtailing} action={{ type: 'curtail', zone: zone.id }} label={z.curtailing ? 'Release curtailment' : 'Request curtailment'} cost={z.curtailing ? 'Ramps back up over 12 s' : `Controlled ramp to ${zone.processMinimum} MW over 12 s`} />}
           {other && <Btn sim={sim} onAct={onAct} action={{ type: 'transfer', zone: zone.id }} label={`Transfer to ${other}`} cost={`1.5 s interruption · adds ${mw(z.demand)} to ${other}`} />}
@@ -239,4 +239,16 @@ function Links({ sim, ids, onSelect, label }: { sim: Simulation; ids: string[]; 
       })}
     </div>
   );
+}
+
+/** What opening a line does: reroutes its flow, or cuts off a power station on a single line. */
+function openLineCost(sim: Simulation, lineId: string): string {
+  const def = sim.net.lines.find((l) => l.id === lineId)!;
+  for (const end of [def.from, def.to]) {
+    const g = sim.net.generators.find((x) => x.bus === end);
+    if (!g) continue;
+    const others = sim.net.lines.filter((l) => l.id !== lineId && (l.from === end || l.to === end) && sim.state.lines[l.id].closed && !sim.state.lines[l.id].tripped);
+    if (!others.length) return `Cuts off ${g.name}: its ${Math.round(sim.state.gens[g.id].pe)} MW is lost at once`;
+  }
+  return 'Its flow moves to other lines instantly';
 }

@@ -145,6 +145,8 @@ export interface ScenarioDef {
   atsFailed: string;
   /** Data-centre UPS autonomy, seconds (degraded). */
   dcUps: number;
+  /** Seconds the data centre's on-site generators can run on the fuel in their day tank. */
+  dcFuel: number;
 }
 
 // ---------------------------------------------------------------- actions
@@ -250,6 +252,8 @@ export interface ZoneState {
   protected: boolean;
   backup: BackupStatus;
   backupTimer: number;
+  /** Seconds of on-site fuel left at full load (only the data centre's tank is limited). */
+  fuel: number;
   ups: number;
   atsFailed: boolean;
   criticalUp: boolean;
@@ -279,6 +283,8 @@ export interface Metrics {
   criticalDown: Record<string, number>;
   criticalLost: Record<string, number>;
   freqOutside: number;
+  /** MW·s of industrial demand curtailed (paid for under the curtailment contract). */
+  curtailedMWs: number;
   minFreq: number;
   maxFreq: number;
   peakDark: number;

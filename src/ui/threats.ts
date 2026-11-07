@@ -1,4 +1,4 @@
-import { LINE_HEAT_K, XFMR_DAMAGE_START, XFMR_ALARM, XFMR_RESET_TEMP, XFMR_TAU, XFMR_TRIP, XFMR_AMBIENT, XFMR_RISE, windAt, type Simulation } from '../sim/engine';
+import { FREQ_BAND_HIGH, FREQ_BAND_LOW, LINE_HEAT_K, XFMR_DAMAGE_START, XFMR_ALARM, XFMR_RESET_TEMP, XFMR_TAU, XFMR_TRIP, XFMR_AMBIENT, XFMR_RISE, windAt, type Simulation } from '../sim/engine';
 
 export type Level = 'critical' | 'warning' | 'info';
 
@@ -37,15 +37,15 @@ export function threats(sim: Simulation): Threat[] {
 
   const f = s.freq;
   const deficit = s.totalServed - s.totalGen;
-  if (f > 0 && f < 49.6) {
+  if (f > 0 && f < FREQ_BAND_LOW + 0.1) {
     out.push({
       key: 'freq-low', id: 'G1', level: f < 49.2 ? 'critical' : 'warning',
       title: `Frequency ${f.toFixed(2)} Hz`,
-      detail: `${deficit > 1 ? `Short by ${Math.round(deficit)} MW. ` : ''}${headroom(sim)} Automatic shedding at 49.0 Hz.`,
+      detail: `${deficit > 1 ? `Short by ${Math.round(deficit)} MW. ` : ''}${headroom(sim)}${curtailHint(sim)} ${f < 49.0 ? 'Automatic shedding is operating.' : 'Automatic shedding at 49.0 Hz.'}`,
       eta: f < 49.2 ? 3 : 10,
     });
-  } else if (f > 50.4) {
-    out.push({ key: 'freq-high', id: 'G1', level: f > 51 ? 'critical' : 'warning', title: `Frequency ${f.toFixed(2)} Hz`, detail: 'Too much generation. Lower output; generators trip at 52 Hz.', eta: 8 });
+  } else if (f > FREQ_BAND_HIGH) {
+    out.push({ key: 'freq-high', id: 'G1', level: f > 51 ? 'critical' : 'warning', title: `Frequency ${f.toFixed(2)} Hz`, detail: 'Too much generation: time outside 49.7 to 50.3 Hz costs points. Lower output; generators trip at 52 Hz.', eta: 8 });
   }
 
   const wind = n.generators.find((g) => g.kind === 'wind');
@@ -75,6 +75,7 @@ export function threats(sim: Simulation): Threat[] {
       continue;
     }
     if (!t.closed || !t.energised) continue;
+    // forecast from the oil temperature trend (the temperature probe is always honest)
     const eta = xfmrEta(t.temp, t.loading);
     if (t.temp > XFMR_ALARM - 5 || eta < 25) {
       const damaging = t.temp > XFMR_DAMAGE_START;
@@ -103,7 +104,7 @@ export function threats(sim: Simulation): Threat[] {
       else if (!zs.served && zs.backup !== 'running') out.push({ key: `ups-${z.id}`, id: z.id, level: 'critical', title: `${c.name} on battery`, detail: `${Math.ceil(zs.ups)} s left${zs.backup === 'starting' ? ', generators starting' : ''}.`, eta: zs.ups });
       else if (zs.criticalDegraded) out.push({ key: `deg-${z.id}`, id: z.id, level: 'warning', title: `${c.name} degraded`, detail: 'Supply voltage below minimum: trains slowed. Relieve its substation.', eta: 30 });
       if (zs.atsFailed && zs.criticalUp && s.time > 6.9) out.push({ key: `ats-${z.id}`, id: z.id, level: 'warning', title: `${c.name}: backup won't auto-start`, detail: sim.crewOn(z.id) ? 'Crew on the way.' : 'Send a crew before this hospital loses its feed.', eta: 45 });
-      if (z.id === 'Z06' && zs.backup === 'off' && zs.served && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: 'Generators are manual. Running on them protects 112 routing and takes 30 MW off Südstadt, at the far end of the west-to-east lines.', eta: 60 });
+      if (z.id === 'Z06' && zs.backup === 'off' && zs.served && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: `Generators are manual, fuel for ${Math.ceil(zs.fuel)} s. Running on them protects 112 routing and takes 30 MW off Südstadt, at the far end of the west-to-east lines.`, eta: 60 });
     }
     if (zs.shedBy === 'ufls' && !zs.breaker) out.push({ key: `ufls-${z.id}`, id: z.id, level: 'info', title: `${z.name} shed automatically`, detail: `${(z.population / 1000).toFixed(0)}k residents dark. Reconnect when there is headroom.`, eta: 70 });
   }
@@ -124,3 +125,11 @@ function headroom(sim: Simulation): string {
 }
 
 const busX = (sim: Simulation, id: string) => sim.net.buses.find((b) => b.id === id)?.pos[0] ?? 0;
+
+function curtailHint(sim: Simulation): string {
+  const z = sim.net.zones.find((x) => x.kind === 'industrial');
+  if (!z) return '';
+  const zs = sim.state.zones[z.id];
+  if (!zs.served || zs.curtailing) return '';
+  return ` Or curtail ${z.name} (about ${Math.round(zs.demand - (z.processMinimum ?? 0))} MW over 12 s, paid per MWh).`;
+}

@@ -13,12 +13,14 @@ interface Props {
   timeline: { t: number; freq: number; served: number }[];
   challengeUrl: string;
   rival: { name: string; score: number; grade: string } | null;
-  best: { best: number; isNew: boolean } | null;
+  best: { best: number; isNew: boolean; first?: boolean } | null;
   decisions: number;
   onReplay: () => void;
   onNew: () => void;
   onMenu: () => void;
 }
+
+const pts = (n: number) => `${n} point${n === 1 ? '' : 's'}`;
 
 const GRADE_CLASS: Record<string, string> = { S: 'g-s', A: 'g-a', B: 'g-b', C: 'g-c', D: 'g-d', F: 'g-f' };
 
@@ -100,7 +102,7 @@ export function Results(p: Props) {
               <div className="gt">{o.title}</div>
             </div>
           </div>
-          {p.best && (p.best.isNew ? <div className="badge-new">NEW PERSONAL BEST</div> : <div className="muted">Your best on this storm: {p.best.best}/100</div>)}
+          {p.best && (p.best.isNew ? <div className="badge-new">NEW PERSONAL BEST</div> : p.best.first ? <div className="muted">Your first result on this storm. Replay it to beat it.</div> : <div className="muted">Your best on this storm: {p.best.best}/100</div>)}
           {p.rival && (
             <div className={`versus ${o.stability > p.rival.score ? 'win' : o.stability < p.rival.score ? 'lose' : 'draw'}`}>
               <div><small>YOU</small><b>{o.stability}</b></div>
@@ -131,7 +133,7 @@ export function Results(p: Props) {
               <div className="idle">
                 <b>If nobody had touched the controls:</b> {r.idle.collapsed ? `total blackout at ${Math.floor(r.idle.collapseTime / 60)}:${String(Math.floor(r.idle.collapseTime % 60)).padStart(2, '0')}` : `${r.idle.stability}/100 stability (${r.idle.grade})`}
                 {r.idle.critical.filter((c) => !c.protected).length > 0 && `, ${r.idle.critical.filter((c) => !c.protected).map((c) => c.name).join(' and ')} would have lost power`}.
-                {' '}{o.stability === r.idle.stability ? 'Your shift ended exactly where doing nothing would have.' : o.stability > r.idle.stability ? `All your decisions together: ${o.stability - r.idle.stability} points better.` : `All your decisions together: ${r.idle.stability - o.stability} points worse.`}
+                {' '}{o.stability === r.idle.stability ? 'Your shift ended exactly where doing nothing would have.' : o.stability > r.idle.stability ? `All your decisions together: ${pts(o.stability - r.idle.stability)} better.` : `All your decisions together: ${pts(r.idle.stability - o.stability)} worse.`}
                 {r.measured < r.decisions && <span className="muted"> The first {r.measured} of your {r.decisions} decisions were measured one by one; this comparison covers all of them.</span>}
               </div>
             </>
