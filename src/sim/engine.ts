@@ -18,6 +18,8 @@ export const UFLS_STAGES = [49.0, 48.7, 48.4] as const;
 export const UFLS_DELAY = 0.3;
 /** Largest frequency difference the synchro-check relay accepts when joining two live islands. */
 export const SYNC_MAX_DF = 0.5;
+/** Time constant with which an idling unit's governor returns it to nominal speed. */
+export const NO_LOAD_TAU = 0.8;
 /** Normal operating band. The frequency dial turns amber outside it and scoring counts time outside it. */
 export const FREQ_BAND_LOW = 49.7;
 export const FREQ_BAND_HIGH = 50.3;
@@ -71,6 +73,17 @@ export const fmtTime = (t: number) => {
   const s = Math.max(0, Math.floor(t));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
+
+export interface ReliefOption {
+  action: Action;
+  label: string;
+  /** This line's loading after the action. */
+  loading: number;
+  /** Worst loading of any other line or of a substation that takes on load (9 = would destroy a known-faulty transformer). */
+  worstOther: number;
+  /** Why worstOther is high, when a substation is the problem. */
+  note?: string;
+}
 
 export interface Check {
   ok: boolean;
@@ -302,6 +315,12 @@ export class Simulation {
         if (t.closed) return no('Transformer is already in service.');
         return { ok: true };
       }
+      case 'stopBackup': {
+        const z = s.zones[a.zone];
+        if (!z || (z.backup !== 'running' && z.backup !== 'starting')) return no('Backup generation is not running.');
+        if (!z.served) return no('The grid feed is down: stopping the generators would black it out.');
+        return { ok: true };
+      }
       case 'startBackup': {
         const d = this.zoneDef(a.zone);
         const z = s.zones[a.zone];
@@ -385,6 +404,22 @@ export class Simulation {
 
   // ---------------------------------------------------------------- grid analysis
 
+  /** What opening a line would do: the worst other line loading afterwards, and whether it islands anything. */
+  openLineEffect(lineId: string): { worst: number; worstId: string | null; islands: boolean } {
+    const base = this.snapshot();
+    const f = this.flowsFor(base.busLoad, base.gen, lineId);
+    let worst = 0;
+    let worstId: string | null = null;
+    for (const l of this.net.lines) {
+      if (l.id === lineId || f[l.id] === undefined) continue;
+      const L = Math.abs(f[l.id]) / l.limit;
+      if (L > worst) { worst = L; worstId = l.id; }
+    }
+    const before = this.net.lines.filter((l) => this.state.lines[l.id].closed && !this.state.lines[l.id].tripped && l.id !== lineId).length;
+    const after = Object.keys(f).length;
+    return { worst, worstId, islands: after < before };
+  }
+
   /** Bus loads and generator outputs as they stand this tick. */
   private snapshot() {
     const s = this.state;
@@ -402,11 +437,12 @@ export class Simulation {
    * Steady-state flows for a hypothetical dispatch: any mismatch in an island is shared by
    * its synchronous generators in proportion to rating (what droop would do).
    */
-  flowsFor(busLoad: number[], gen: Record<string, number>): Record<string, number> {
+  flowsFor(busLoad: number[], gen: Record<string, number>, opened?: string): Record<string, number> {
     const s = this.state;
     const n = this.net;
     const edges: [number, number][] = [];
-    for (const l of n.lines) if (s.lines[l.id].closed && !s.lines[l.id].tripped) edges.push([this.busIndex.get(l.from)!, this.busIndex.get(l.to)!]);
+    const inService = (id: string) => id !== opened && s.lines[id].closed && !s.lines[id].tripped;
+    for (const l of n.lines) if (inService(l.id)) edges.push([this.busIndex.get(l.from)!, this.busIndex.get(l.to)!]);
     const comp = components(n.buses.length, edges);
     const out: Record<string, number> = {};
     const roots = new Set(comp);
@@ -433,8 +469,7 @@ export class Simulation {
       const fl: FlowLine[] = [];
       const ids: string[] = [];
       for (const l of n.lines) {
-        const ls = s.lines[l.id];
-        if (!ls.closed || ls.tripped || comp[this.busIndex.get(l.from)!] !== root) continue;
+        if (!inService(l.id) || comp[this.busIndex.get(l.from)!] !== root) continue;
         fl.push({ index: fl.length, from: local.get(this.busIndex.get(l.from)!)!, to: local.get(this.busIndex.get(l.to)!)!, x: l.x });
         ids.push(l.id);
       }
@@ -449,19 +484,34 @@ export class Simulation {
    * the worst other line. This is the operator's contingency tool; it reads the same model the
    * simulation uses, so its advice is exactly as good as the model.
    */
-  reliefOptions(lineId: string, limit = 3): { action: Action; label: string; loading: number; worstOther: number }[] {
+  reliefOptions(lineId: string, limit = 3): ReliefOption[] {
     const s = this.state;
     const n = this.net;
     const lineDef = n.lines.find((l) => l.id === lineId);
     if (!lineDef || !s.lines[lineId].closed || s.lines[lineId].tripped) return [];
     const base = this.snapshot();
-    const out: { action: Action; label: string; loading: number; worstOther: number }[] = [];
+    const out: ReliefOption[] = [];
     const evaluate = (action: Action, label: string, busLoad: number[], gen: Record<string, number>) => {
       if (!this.check(action).ok) return;
       const f = this.flowsFor(busLoad, gen);
       let worst = 0;
+      let note: string | undefined;
       for (const l of n.lines) if (l.id !== lineId && f[l.id] !== undefined) worst = Math.max(worst, Math.abs(f[l.id]) / l.limit);
-      out.push({ action, label, loading: Math.abs(f[lineId] ?? 0) / lineDef.limit, worstOther: worst });
+      // a substation that takes on load must stay within its rating, and a transformer the
+      // analyst has found failing must stay below the loading at which it fails
+      for (const sub of n.substations) {
+        const bi = this.busIndex.get(sub.id)!;
+        if (busLoad[bi] <= base.busLoad[bi] + 1e-6) continue;
+        const L = busLoad[bi] / sub.rating;
+        if (s.known[sub.id]?.includes('incipient') && L > INCIPIENT_THRESHOLD) {
+          worst = Math.max(worst, 9);
+          note = `${sub.id} has a known internal fault: ${Math.round(L * 100)}% would destroy it`;
+        } else if (L > 1) {
+          worst = Math.max(worst, L);
+          note = `puts ${sub.id} at ${Math.round(L * 100)}% of its rating`;
+        }
+      }
+      out.push({ action, label, loading: Math.abs(f[lineId] ?? 0) / lineDef.limit, worstOther: worst, note });
     };
     for (const z of n.zones) {
       const zs = s.zones[z.id];
@@ -475,7 +525,7 @@ export class Simulation {
       if (z.critical?.backup && zs.backup === 'off' && !zs.atsFailed) {
         const bl = [...base.busLoad];
         bl[bi] -= Math.min(z.critical.load, z.critical.backup.capacity);
-        evaluate({ type: 'startBackup', zone: z.id }, `Run ${z.critical.name} on its own generators`, bl, base.gen);
+        evaluate({ type: 'startBackup', zone: z.id }, `Run ${z.name} on its own generators`, bl, base.gen);
       }
       if (z.alternate) {
         const target = zs.feed === 'primary' ? z.alternate : z.primary;
@@ -603,6 +653,14 @@ export class Simulation {
       case 'energiseSub': {
         s.subs[a.sub].closed = true;
         this.note(a, true, `Energised transformer ${a.sub}`);
+        break;
+      }
+      case 'stopBackup': {
+        const z = s.zones[a.zone];
+        const d = this.zoneDef(a.zone);
+        z.backup = 'off';
+        this.note(a, true, `Returned ${d.name} to the grid`);
+        this.alert('info', `${d.critical!.name}: back on the grid, generators stopped${z.fuel < 1e8 ? ` with fuel for ${Math.ceil(z.fuel)} s left` : ''}.`, a.zone, `bk-stop-${a.zone}-${s.tick}`);
         break;
       }
       case 'startBackup': {
@@ -931,10 +989,11 @@ export class Simulation {
       for (const b of buses) pl += busLoad[b] * damp;
       // An island with no load left: its units drop to speed-no-load on their own breakers
       // and wait to be reconnected, rather than over-speeding.
+      // (its speed governor brings it back to nominal within about a second)
       const noLoad = pl < 0.5;
       if (noLoad) for (const id of genIds) s.gens[id].pm = 0;
       const dP = noLoad ? 0 : pm - pl;
-      const fNext = noLoad ? F0 : f + ((F0 * dP) / (2 * hs)) * DT;
+      const fNext = noLoad ? f + (F0 - f) * Math.min(1, DT / NO_LOAD_TAU) : f + ((F0 * dP) / (2 * hs)) * DT;
       const inj = new Array<number>(buses.length).fill(0);
       for (const id of genIds) {
         const g = n.generators.find((x) => x.id === id)!;

@@ -15,7 +15,7 @@ export function createCrisis(seed: number): ScenarioDef {
   const strike = rng.pick(['L9', 'L6', 'L11'] as const);
   const strikePermanent = rng.next() < 0.5;
   const dropStart0 = round(rng.range(4, 7), 1);
-  const dropLen = rng.range(12, 16);
+  const dropLen = rng.range(18, 24);
   const windFloor = round(rng.range(12, 22), 1);
   const lull0 = round(rng.range(55, 65), 1);
   const rise1 = rng.range(18, 28);

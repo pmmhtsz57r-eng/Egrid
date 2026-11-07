@@ -28,6 +28,8 @@ export function Hud(p: Props) {
   const [sheet, setSheet] = useState<'urgent' | 'log' | 'assets'>('urgent');
   const dark = Math.round(sim.net.zones.reduce((a, z) => a + z.population * (1 - s.zones[z.id].powered), 0));
   const freq = s.freq;
+  // demand of districts with no supply (not the small drop of load with frequency)
+  const cutOff = sim.net.zones.reduce((a, z) => a + (s.zones[z.id].served ? 0 : s.zones[z.id].demand), 0);
   const fcls = freq <= 0 ? 'dead' : freq < 49.2 || freq > 50.8 ? 'crit' : freq < FREQ_BAND_LOW || freq > FREQ_BAND_HIGH ? 'warn' : 'ok';
   const needle = Math.max(-1, Math.min(1, (freq - 50) / 1.5));
   const crit = sim.net.zones.filter((z) => z.critical);
@@ -59,7 +61,7 @@ export function Hud(p: Props) {
         </div>
         <div className="gauge">
           <label>GENERATION / LOAD SERVED</label>
-          <div className="big">{Math.round(s.totalGen)}<small>/ {Math.round(s.totalServed)} MW</small>{s.totalDemand - s.totalServed > 1 && <small className="cut"> · {Math.round(s.totalDemand - s.totalServed)} MW cut off</small>}</div>
+          <div className="big">{Math.round(s.totalGen)}<small>/ {Math.round(s.totalServed)} MW</small>{cutOff >= 1 && <small className="cut"> · {Math.round(cutOff)} MW cut off</small>}</div>
           <div className="split">{sim.net.generators.map((g) => (
             <button key={g.id} className={`gen ${s.gens[g.id].online ? '' : 'off'}`} onClick={() => p.onSelect(g.id)}>{g.short} <b>{Math.round(s.gens[g.id].pe)}</b></button>
           ))}</div>
@@ -93,6 +95,7 @@ export function Hud(p: Props) {
               <li key={t.key} className={`${t.level} ${p.selected === t.id ? 'on' : ''}`} onClick={() => p.onSelect(t.id)}>
                 <b>{t.title}</b>
                 <span>{t.detail}</span>
+                {t.suggest && <button className="mini suggest" onClick={(e) => { e.stopPropagation(); p.onAct(t.suggest!.action); }}>{t.suggest.label}</button>}
               </li>
             ))}
           </ul>

@@ -163,6 +163,7 @@ export type Action =
   | { type: 'isolateSub'; sub: string }
   | { type: 'energiseSub'; sub: string }
   | { type: 'startBackup'; zone: string }
+  | { type: 'stopBackup'; zone: string }
   | { type: 'dispatchCrew'; target: string }
   | { type: 'investigate'; target: string }
   | { type: 'mobileGen'; zone: string };

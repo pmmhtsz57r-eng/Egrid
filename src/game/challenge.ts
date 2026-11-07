@@ -16,7 +16,7 @@ export interface Challenge {
 
 const CODES: Record<Action['type'], string> = {
   setpoint: 'g', shed: 's', restore: 'r', transfer: 't', curtail: 'c', protect: 'p', isolateLine: 'o',
-  closeLine: 'k', isolateSub: 'i', energiseSub: 'e', startBackup: 'b', dispatchCrew: 'd', investigate: 'v', mobileGen: 'm',
+  closeLine: 'k', isolateSub: 'i', energiseSub: 'e', startBackup: 'b', stopBackup: 'x', dispatchCrew: 'd', investigate: 'v', mobileGen: 'm',
 };
 const TYPES = Object.fromEntries(Object.entries(CODES).map(([k, v]) => [v, k])) as Record<string, Action['type']>;
 

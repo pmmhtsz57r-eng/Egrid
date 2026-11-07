@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Simulation } from '../sim/engine';
-import { MOBILE_GEN_MW, XFMR_TRIP, XFMR_RESET_TEMP, CREW_WORK } from '../sim/engine';
+import { MOBILE_GEN_MW, XFMR_TRIP, XFMR_RESET_TEMP, CREW_WORK, INCIPIENT_THRESHOLD } from '../sim/engine';
 import type { Action } from '../sim/types';
 import { lineEta, xfmrEta } from './threats';
 
@@ -151,7 +151,7 @@ export function AssetPanel({ sim, id, onAct, onSelect, onClose }: Props) {
                 {options.length === 0 && <li className="muted">No single action relieves this line right now.</li>}
                 {options.map((o, i) => (
                   <li key={i}>
-                    <div><b>{o.label}</b><span>{pct(l.loading)} → {pct(o.loading)}{o.worstOther > 1 ? ` · overloads another line (${pct(o.worstOther)})` : ''}</span></div>
+                    <div><b>{o.label}</b><span>{pct(l.loading)} → {pct(o.loading)}{o.note ? ` · ${o.note}` : o.worstOther > 1 ? ` · overloads another line (${pct(o.worstOther)})` : ''}</span></div>
                     <button className="mini" disabled={!sim.check(o.action).ok} onClick={() => onAct(o.action)}>Do it</button>
                   </li>
                 ))}
@@ -193,16 +193,17 @@ export function AssetPanel({ sim, id, onAct, onSelect, onClose }: Props) {
         {c && (
           <div className="critical-box">
             <div className="cb-head"><b>{c.name}</b><Status level={!z.criticalUp ? 'crit' : z.criticalDegraded ? 'warn' : z.served ? 'ok' : 'warn'}>{!z.criticalUp ? 'DOWN' : z.criticalDegraded ? 'DEGRADED' : z.served ? (z.backup === 'running' ? 'ON OWN GENERATORS' : 'GRID') : z.backup === 'running' ? 'BACKUP' : 'BATTERY'}</Status></div>
-            <p>{c.dependants.toLocaleString('en-GB')} people depend on it directly (fictional).</p>
-            {c.backup && <div className="kv"><span>Backup</span><b>{z.atsFailed ? 'Transfer switch FAULTY' : z.backup === 'none' ? '—' : z.backup}</b><span>Battery</span><b>{Math.ceil(z.ups)} s</b></div>}
+            <p>{zone.kind === 'datacentre' ? 'Routes 112 emergency calls for the whole city (fictional).' : `${c.dependants.toLocaleString('en-GB')} people depend on it directly (fictional).`}</p>
+            {c.backup && <div className="kv"><span>Backup</span><b>{z.atsFailed ? 'Transfer switch FAULTY' : z.backup === 'none' ? '—' : z.backup}</b><span>Battery</span><b>{Math.ceil(z.ups)} s</b>{z.fuel < 1e8 && <><span>Fuel</span><b className={z.fuel < 15 ? 'crit' : ''}>{Math.ceil(z.fuel)} s</b></>}</div>}
             {c.minVoltage && <div className="kv"><span>Supply voltage</span><b className={s.subs[feed].voltage < c.minVoltage ? 'crit' : ''}>{(s.subs[feed].voltage * 100).toFixed(1)}% (min {c.minVoltage * 100}%)</b></div>}
           </div>
         )}
         <div className="actions">
-          {c?.backup && <Btn sim={sim} onAct={onAct} primary action={{ type: 'startBackup', zone: zone.id }} label={zone.id === 'Z06' ? 'Start on-site generators' : 'Start backup generators'} cost={`${c.backup.startDelay} s to start · carries ${c.backup.capacity} MW${z.fuel < 1e8 ? ` · fuel for ${Math.ceil(z.fuel)} s` : ''}`} />}
+          {c?.backup && (z.backup === 'running' || z.backup === 'starting') && z.served && <Btn sim={sim} onAct={onAct} action={{ type: 'stopBackup', zone: zone.id }} label="Return to the grid" cost={`Stops the generators${z.fuel < 1e8 ? ` · saves the ${Math.ceil(z.fuel)} s of fuel left` : ''} · ${mw(Math.min(c.load, c.backup.capacity))} back on ${feed}`} />}
+          {c?.backup && z.backup !== 'running' && z.backup !== 'starting' && <Btn sim={sim} onAct={onAct} primary action={{ type: 'startBackup', zone: zone.id }} label={zone.id === 'Z06' ? 'Start on-site generators' : 'Start backup generators'} cost={`${c.backup.startDelay} s to start · carries ${c.backup.capacity} MW${z.fuel < 1e8 ? ` · fuel for ${Math.ceil(z.fuel)} s` : ''}`} />}
           {z.atsFailed && <Btn sim={sim} onAct={onAct} primary action={{ type: 'dispatchCrew', target: zone.id }} label="Send crew to transfer switch" cost={`${crewFree} crew free · ${CREW_WORK.ats} s on site`} />}
           {zone.kind === 'industrial' && <Btn sim={sim} onAct={onAct} primary={!z.curtailing} action={{ type: 'curtail', zone: zone.id }} label={z.curtailing ? 'Release curtailment' : 'Request curtailment'} cost={z.curtailing ? 'Ramps back up over 12 s' : `Controlled ramp to ${zone.processMinimum} MW over 12 s`} />}
-          {other && <Btn sim={sim} onAct={onAct} action={{ type: 'transfer', zone: zone.id }} label={`Transfer to ${other}`} cost={`1.5 s interruption · adds ${mw(z.demand)} to ${other}`} />}
+          {other && <Btn sim={sim} onAct={onAct} action={{ type: 'transfer', zone: zone.id }} label={z.feed === 'primary' ? `Transfer to ${other}` : `Back to normal feed ${other}`} cost={transferCost(sim, zone.id, other)} />}
           {z.breaker
             ? <Btn sim={sim} onAct={onAct} danger action={{ type: 'shed', zone: zone.id }} label="Shed this zone" cost={zone.kind === 'industrial' ? 'Unsafe: uncontrolled process trip' : zone.population ? `${(zone.population / 1000).toFixed(0)}k residents lose power` : 'Disconnect the feeder'} />
             : <Btn sim={sim} onAct={onAct} primary action={{ type: 'restore', zone: zone.id }} label="Reconnect" cost="Cold-load pickup: up to +40% demand for 10 s" />}
@@ -250,5 +251,21 @@ function openLineCost(sim: Simulation, lineId: string): string {
     const others = sim.net.lines.filter((l) => l.id !== lineId && (l.from === end || l.to === end) && sim.state.lines[l.id].closed && !sim.state.lines[l.id].tripped);
     if (!others.length) return `Cuts off ${g.name}: its ${Math.round(sim.state.gens[g.id].pe)} MW is lost at once`;
   }
-  return 'Its flow moves to other lines instantly';
+  const e = sim.openLineEffect(lineId);
+  if (e.worstId && e.worst > 1) return `Its flow moves to other lines at once: ${e.worstId} would be at ${Math.round(e.worst * 100)}% and start heating`;
+  if (e.worstId) return `Its flow moves to other lines at once: worst becomes ${e.worstId} at ${Math.round(e.worst * 100)}%`;
+  return 'Its flow moves to other lines at once';
+}
+
+/** What a transfer does to the substation that takes the zone, as the operator can see it. */
+function transferCost(sim: Simulation, zoneId: string, to: string): string {
+  const s = sim.state;
+  const z = s.zones[zoneId];
+  const def = sim.net.substations.find((x) => x.id === to)!;
+  const t = s.subs[to];
+  const drift = s.known[to]?.includes('drifting');
+  const now = (drift ? t.loading : t.measured) * def.rating;
+  const after = (now + z.drawn) / def.rating;
+  const warn = s.known[to]?.includes('incipient') && after > INCIPIENT_THRESHOLD ? ' · KNOWN FAULT: it fails above 70%' : after > 1 ? ' · over its rating' : '';
+  return `1.5 s interruption · adds ${Math.round(z.drawn)} MW: ${to} to about ${Math.round(after * 100)}%${warn}`;
 }

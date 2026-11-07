@@ -36,7 +36,7 @@ export function describeAction(sim: Simulation, a: Action): string {
     case 'setpoint': return `${a.delta > 0 ? 'Raised' : 'Lowered'} ${L(a.gen)} output by ${Math.abs(a.delta)} MW`;
     case 'shed': return `Shed ${L(a.zone)}`;
     case 'restore': return `Reconnected ${L(a.zone)}`;
-    case 'transfer': return `Transferred ${L(a.zone)} to its alternative feed`;
+    case 'transfer': return `Switched the feed of ${L(a.zone)}`;
     case 'curtail': return `Curtailed ${L(a.zone)}`;
     case 'protect': return `Exempted ${L(a.zone)} from automatic shedding`;
     case 'isolateLine': return `Opened line ${a.line} ${L(a.line)}`;
@@ -44,6 +44,7 @@ export function describeAction(sim: Simulation, a: Action): string {
     case 'isolateSub': return `Isolated transformer ${a.sub} ${L(a.sub)}`;
     case 'energiseSub': return `Energised transformer ${a.sub} ${L(a.sub)}`;
     case 'startBackup': return `Started backup generation at ${L(a.zone)}`;
+    case 'stopBackup': return `Returned ${L(a.zone)} to the grid to save fuel`;
     case 'dispatchCrew': return `Sent a repair crew to ${L(a.target)}`;
     case 'investigate': return `Investigated ${a.target} ${L(a.target)}`;
     case 'mobileGen': return `Deployed the mobile generator to ${L(a.zone)}`;
@@ -52,32 +53,36 @@ export function describeAction(sim: Simulation, a: Action): string {
 
 /** Plain-language difference between two outcomes: what changes if the decision is reversed. */
 function consequence(withIt: Outcome, without: Outcome): string {
-  const bits: string[] = [];
-  if (without.collapsed && !withIt.collapsed) bits.push(`the city would have suffered a total blackout at ${fmtTime(without.collapseTime)}`);
-  if (withIt.collapsed && !without.collapsed) bits.push('the total blackout would have been avoided');
-  const dc = without.criticalProtected - withIt.criticalProtected;
+  // each fact says whether it shows the decision helping (+1) or hurting (-1)
+  const facts: { text: string; sign: 1 | -1 }[] = [];
+  if (without.collapsed && !withIt.collapsed) facts.push({ text: `the city would have suffered a total blackout at ${fmtTime(without.collapseTime)}`, sign: 1 });
+  if (withIt.collapsed && !without.collapsed) facts.push({ text: 'the total blackout would have been avoided', sign: -1 });
   const lostWithout = without.critical.filter((c) => !c.protected && withIt.critical.find((x) => x.id === c.id)!.protected).map((c) => c.name);
   const savedWithout = without.critical.filter((c) => c.protected && !withIt.critical.find((x) => x.id === c.id)!.protected).map((c) => c.name);
-  if (dc < 0 && lostWithout.length) bits.push(`${lostWithout.join(' and ')} would have lost power`);
-  if (savedWithout.length) bits.push(`${savedWithout.join(' and ')} would have kept power`);
+  if (lostWithout.length) facts.push({ text: `${lostWithout.join(' and ')} would have lost power`, sign: 1 });
+  if (savedWithout.length) facts.push({ text: `${savedWithout.join(' and ')} would have kept power`, sign: -1 });
+  const lostDiff = without.infrastructureLost.filter((x) => !withIt.infrastructureLost.includes(x));
+  if (lostDiff.length) facts.push({ text: `this would have happened: ${lostDiff[0]}`, sign: 1 });
+  const savedEq = withIt.infrastructureLost.filter((x) => !without.infrastructureLost.includes(x));
+  if (savedEq.length) facts.push({ text: `this would not have happened: ${savedEq[0]}`, sign: -1 });
   const people = without.peoplePowered - withIt.peoplePowered;
-  if (Math.abs(people) >= 2000) bits.push(`${Math.abs(Math.round(people / 1000))}k ${people < 0 ? 'fewer' : 'more'} residents would have had power on average`);
-  const lostDiff = without.infrastructureLost.filter((x) => !withIt.infrastructureLost.includes(x) && !x.includes('without power'));
-  if (lostDiff.length) bits.push(`this would have happened: ${lostDiff[0]}`);
-  const savedEq = withIt.infrastructureLost.filter((x) => !without.infrastructureLost.includes(x) && !x.includes('without power'));
-  if (savedEq.length) bits.push(`this would not have happened: ${savedEq[0]}`);
-  if (!bits.length) {
-    // name the part of the score that moved most
+  if (Math.abs(people) >= 2000) facts.push({ text: `${Math.abs(Math.round(people / 1000))}k ${people < 0 ? 'fewer' : 'more'} residents would have had power on average`, sign: people < 0 ? 1 : -1 });
+
+  const dir = withIt.stability >= without.stability ? 1 : -1;
+  const main = facts.filter((f) => f.sign === dir).map((f) => f.text);
+  const against = facts.find((f) => f.sign !== dir);
+  if (!main.length) {
+    // name the part of the score that moved most in the decision's direction
     let best = { label: '', d: 0 };
-    for (const b of without.breakdown) {
-      const w = withIt.breakdown.find((x) => x.label === b.label)?.points ?? 0;
-      if (Math.abs(b.points - w) > Math.abs(best.d)) best = { label: b.label, d: b.points - w };
+    const labels = new Set([...without.breakdown, ...withIt.breakdown].map((b) => b.label));
+    for (const label of labels) {
+      const d = (without.breakdown.find((b) => b.label === label)?.points ?? 0) - (withIt.breakdown.find((b) => b.label === label)?.points ?? 0);
+      if (-d * dir > -best.d * dir) best = { label, d };
     }
-    for (const w of withIt.breakdown) if (!without.breakdown.some((b) => b.label === w.label) && Math.abs(w.points) > Math.abs(best.d)) best = { label: w.label, d: -w.points };
-    const what = best.label ? ` (${best.label.toLowerCase()}: ${best.d > 0 ? '+' : ''}${best.d})` : '';
-    bits.push(`city stability would have been ${without.stability} instead of ${withIt.stability}${what}`);
+    const what = best.label && best.d !== 0 ? ` (${best.label.toLowerCase()}: ${best.d > 0 ? '+' : ''}${best.d})` : '';
+    main.push(`city stability would have been ${without.stability} instead of ${withIt.stability}${what}`);
   }
-  return bits.slice(0, 2).join('; ');
+  return main.slice(0, 2).join('; ') + (against && main.length < 2 ? `, even though ${against.text}` : '');
 }
 
 function play(sc: ScenarioDef, rec: TimedAction[]) {
@@ -136,8 +141,8 @@ function switchKey(a: Action): string | null {
 }
 
 
-/** Curtail and protect are switches: the same action turns them on and off again. */
-const toggleKey = (a: Action) => (a.type === 'curtail' || a.type === 'protect' ? `${a.type}-${a.zone}` : null);
+/** Curtail, protect and transfer are switches: the same action turns them on and off again. */
+const toggleKey = (a: Action) => (a.type === 'curtail' || a.type === 'protect' || a.type === 'transfer' ? `${a.type}-${a.zone}` : null);
 
 /**
  * Removing one press of a switch would flip the meaning of every later press, so "without
@@ -156,6 +161,10 @@ function without(rec: TimedAction[], group: TimedAction[]) {
 function describeToggle(sim: Simulation, a: Action, on: boolean) {
   const name = sim.label((a as { zone: string }).zone);
   if (a.type === 'curtail') return on ? `Curtailed ${name}` : `Released the curtailment of ${name}`;
+  if (a.type === 'transfer') {
+    const d = sim.zoneDef(a.zone);
+    return on ? `Transferred ${name} to ${d.alternate}` : `Moved ${name} back to its normal feed ${d.primary}`;
+  }
   return on ? `Exempted ${name} from automatic shedding` : `Removed the shedding exemption for ${name}`;
 }
 

@@ -4,7 +4,7 @@ import { createCrisis } from '../src/scenario/crisis';
 import { score } from '../src/scoring/score';
 import { buildReport } from '../src/scoring/report';
 import { decodeChallenge, encodeChallenge } from '../src/game/challenge';
-import type { Action, TimedAction } from '../src/sim/types';
+import type { TimedAction } from '../src/sim/types';
 import { threats } from '../src/ui/threats';
 
 const SEEDS = Array.from({ length: 20 }, (_, i) => (i + 1) * 7919);
@@ -132,7 +132,7 @@ describe('fixes from review round 2', () => {
 });
 
 describe('fixes from review round 3', () => {
-  /** A player who reads Most Urgent and acts on it two seconds later, one action at a time. */
+  /** A player who reads Most Urgent and taps its suggestion two seconds later, one action every 1.5 s. */
   function reader(seed: number) {
     const sim = new Simulation(createCrisis(seed));
     const seen: Record<string, number> = {};
@@ -142,18 +142,12 @@ describe('fixes from review round 3', () => {
       const list = threats(sim);
       for (const th of list) seen[th.key] ??= t;
       if (t >= free) for (const th of list) {
-        if (t - seen[th.key] < 20) continue;
-        let a: Action | null = null;
-        if (th.key === 'freq-low' || th.key === 'wind-drop') a = sim.state.gens.G3.setpoint < 80 ? { type: 'setpoint', gen: 'G3', delta: 10 } : null;
-        else if (th.key.startsWith('ol-')) a = sim.reliefOptions(th.id, 1)[0]?.action ?? null;
-        else if (th.key.startsWith('ats-')) a = { type: 'dispatchCrew', target: th.id };
-        else if (th.key === 'dc-ups') a = { type: 'startBackup', zone: 'Z06' };
-        else if (th.key.startsWith('gas-') || th.key.startsWith('ld-')) a = { type: 'investigate', target: th.id };
-        if (a && sim.check(a).ok) { sim.queue(a); free = t + 15; break; }
+        if (t - seen[th.key] < 20 || !th.suggest) continue;
+        if (sim.queue(th.suggest.action).ok) { free = t + 15; break; }
       }
       sim.step();
     }
-    return score(sim).stability;
+    return score(sim);
   }
   const blind = (seed: number): TimedAction[] => [
     ...[1, 2, 3].map((tick) => ({ tick, action: { type: 'setpoint' as const, gen: 'G3', delta: 10 } })),
@@ -163,15 +157,17 @@ describe('fixes from review round 3', () => {
   ];
 
   it('reading the alerts beats a memorised opening played before any alert', () => {
-    let r = 0, b = 0, s = 0;
+    let r = 0, b = 0, rs = 0, bs = 0;
     for (const seed of SEEDS) {
-      r += reader(seed);
+      const ro = reader(seed);
+      r += ro.stability;
+      if (ro.grade === 'S') rs++;
       const o = score(Simulation.replay(createCrisis(seed), blind(seed)));
       b += o.stability;
-      if (o.grade === 'S') s++;
+      if (o.grade === 'S') bs++;
     }
-    expect(r).toBeGreaterThan(b);
-    expect(s).toBeLessThan(SEEDS.length * 0.25);
+    expect(r).toBeGreaterThan(b + 5 * SEEDS.length);
+    expect(rs).toBeGreaterThanOrEqual(bs);
   });
 
   it('a wind farm cut off by opening its only line comes back when the line is closed', () => {
@@ -195,5 +191,50 @@ describe('fixes from review round 3', () => {
   it('a burst of clicks across a 3-second boundary is one decision', () => {
     const rec: TimedAction[] = [28, 29, 31, 32].map((tick) => ({ tick, action: { type: 'setpoint' as const, gen: 'G3', delta: 10 } }));
     expect(buildReport(createCrisis(7919), rec).decisions).toBe(1);
+  });
+});
+
+describe('fixes from review round 4', () => {
+  it('Grid analysis never puts a transformer over its rating, or a known-faulty one over 70%, among clearing options', () => {
+    for (const seed of SEEDS.slice(0, 12)) {
+      const sc = createCrisis(seed);
+      const sim = new Simulation(sc);
+      sim.state.known[sc.hidden.incipientFault] = 'Dissolved-gas test shows an incipient internal fault.';
+      while (!sim.state.ended) {
+        sim.step();
+        if (sim.state.tick % 10) continue;
+        for (const l of sim.net.lines) {
+          if (sim.state.lines[l.id].loading <= 1) continue;
+          for (const o of sim.reliefOptions(l.id)) {
+            if (o.action.type !== 'transfer' || Math.max(o.loading, o.worstOther) > 1) continue;
+            const z = sim.zoneDef(o.action.zone);
+            const to = sim.state.zones[z.id].feed === 'primary' ? z.alternate! : z.primary;
+            const def = sim.net.substations.find((x) => x.id === to)!;
+            const after = (sim.state.subs[to].load + sim.state.zones[z.id].drawn) / def.rating;
+            expect(after).toBeLessThanOrEqual(1.0001);
+            if (to === sc.hidden.incipientFault) expect(after).toBeLessThanOrEqual(0.7001);
+          }
+        }
+      }
+    }
+  });
+
+  it('a transfer and the transfer back are named by direction', () => {
+    const rec: TimedAction[] = [
+      { tick: 30, action: { type: 'transfer', zone: 'Z01' } },
+      { tick: 200, action: { type: 'transfer', zone: 'Z01' } },
+    ];
+    const r = buildReport(createCrisis(7919), rec);
+    for (const d of [...r.helped, ...r.harmed]) expect(d.text).toMatch(/^(Transferred Altstadt to S02|Moved Altstadt back to its normal feed S01)$/);
+  });
+
+  it('the data-centre generators can be stopped to save fuel', () => {
+    const sim = Simulation.replay(createCrisis(7919), [{ tick: 10, action: { type: 'startBackup', zone: 'Z06' } }], 250);
+    expect(sim.state.zones.Z06.backup).toBe('running');
+    const fuel = sim.state.zones.Z06.fuel;
+    expect(sim.queue({ type: 'stopBackup', zone: 'Z06' }).ok).toBe(true);
+    for (let i = 0; i < 20; i++) sim.step();
+    expect(sim.state.zones.Z06.backup).toBe('off');
+    expect(sim.state.zones.Z06.fuel).toBeCloseTo(fuel, 0);
   });
 });

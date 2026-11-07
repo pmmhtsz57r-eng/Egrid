@@ -128,7 +128,7 @@ export function Results(p: Props) {
           {r && (
             <>
               <Section title="Decisions that helped" cls="good" items={r.helped} empty={r.decisions === 0 ? 'You made no decisions.' : 'No single decision gained 2 points or more on its own.'} sign="+" />
-              <Section title="Decisions that caused damage" cls="bad" items={r.harmed} empty={r.decisions === 0 ? 'You made no decisions.' : o.stability < r.idle.stability ? `No single decision cost 2 points or more on its own, but together they finished ${r.idle.stability - o.stability} points below doing nothing.` : 'No single decision cost 2 points or more on its own.'} sign="" />
+              <Section title="Decisions that caused damage" cls="bad" items={r.harmed} empty={r.decisions === 0 ? 'You made no decisions.' : o.stability < r.idle.stability ? `No single decision cost 2 points or more on its own, but together they finished ${pts(r.idle.stability - o.stability)} below doing nothing.` : 'No single decision cost 2 points or more on its own.'} sign="" />
               <Section title="Missed opportunities" cls="miss" items={r.missed} empty="We could not find a single extra action that would have helped. Impressive." sign="+" />
               <div className="idle">
                 <b>If nobody had touched the controls:</b> {r.idle.collapsed ? `total blackout at ${Math.floor(r.idle.collapseTime / 60)}:${String(Math.floor(r.idle.collapseTime % 60)).padStart(2, '0')}` : `${r.idle.stability}/100 stability (${r.idle.grade})`}

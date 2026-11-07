@@ -27,7 +27,7 @@ The production build is static (relative paths), so `dist/` can be hosted anywhe
 ## How to play
 
 1. **Watch the frequency.** 50 Hz means supply matches demand. Below 49.0 Hz the grid sheds whole districts on its own.
-2. **Stop overloads before they cascade.** A tripped line pushes its power onto its neighbours. Open any overloaded line and use **Grid analysis** to see which single action relieves it most.
+2. **Stop overloads before they cascade.** A tripped line pushes its power onto its neighbours. Open any overloaded line and use **Grid analysis** to see which single action relieves it most. Most items under **Most urgent** carry a one-tap suggestion; it is a good default, not always the best move.
 3. **Protect what matters.** Two hospitals, Railway R02, the data centre that routes 112 emergency calls, and the emergency services HQ.
 
 Every action has a cost: more generation loads the lines, transfers load the neighbouring substation, shedding darkens homes, reconnecting causes a demand surge, crews take time to drive. There is no single correct solution, and doing nothing usually ends in automatic load shedding, a stranded railway or worse.

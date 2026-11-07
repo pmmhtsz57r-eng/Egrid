@@ -75,6 +75,7 @@ Doing nothing typically ends in automatic load shedding, a stranded railway and 
 | Open or close a line | Closing onto a permanent fault trips again and heats the neighbouring transformers. |
 | Isolate or energise a transformer | Protects it, but its zones go dark unless transferred. |
 | Start backup generation | Hospital and data-centre generators take 6 to 10 s; a failed transfer switch needs a crew first. The data centre (at Südstadt, east end of the west-to-east lines) on its own generators frees ~30 MW where it relieves both the frequency and those lines, for as long as its fuel lasts. |
+| Return the data centre to the grid | Stops its generators to save fuel for later; its 30 MW returns to Südstadt. |
 | Dispatch a repair crew (2 crews) | Travel time from the depot plus 6 to 10 s of work. Repairs lines, transfer switches, resets tripped transformers once cool. |
 | Investigate | 4 s, one at a time. Reveals permanent faults, incipient transformer faults and lying sensors. |
 | Deploy the mobile generator (once) | 8 MW, travel time; powers part of a dark zone or offloads a live one. |
@@ -91,7 +92,7 @@ The report replays the run without each decision (helped or harmed, by how many 
 ## 8. UI structure
 
 - **Landing:** live 3D city at night, BLACKOUT title, "90 SECONDS. ONE CITY. YOUR DECISIONS. CAN YOU SAVE NOVA CITY?", operator name field (optional), START EMERGENCY, Daily Challenge, and a challenge banner when opened from a friend's link.
-- **Crisis HUD:** countdown, grid frequency dial, generation versus demand, residents without power, critical services strip; incident feed (left on desktop, top sheet on mobile); asset panel with actions for whatever is selected (right on desktop, bottom sheet on mobile); asset list tab for touch screens.
+- **Crisis HUD:** Most Urgent ranks threats and offers one-tap suggestions computed by the same model as Grid analysis (they never push a transformer past its rating or a known-faulty one past 70%); countdown, grid frequency dial, generation versus demand, residents without power, critical services strip; incident feed (left on desktop, top sheet on mobile); asset panel with actions for whatever is selected (right on desktop, bottom sheet on mobile); asset list tab for touch screens.
 - **3D city:** buildings per zone with lit windows that black out, hospitals with beacons, the railway with moving trains, substations with status rings, transmission lines with flowing particles coloured by loading, wind turbines that stop, rain, fog and lightning; the camera drifts to each new incident and to whatever you select.
 - **Results:** cinematic stability counter, rating, people kept powered, critical services, infrastructure lost, decisions that helped, decisions that hurt, missed opportunities, "if nobody had acted", share card preview with Download, Share and Copy challenge link, Replay same storm, New storm.
 
