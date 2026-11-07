@@ -31,6 +31,8 @@ export function xfmrEta(temp: number, loading: number) {
 
 const secs = (t: number) => (t === Infinity ? '' : t < 1 ? 'now' : `${Math.ceil(t)} s`);
 
+const firstSeen = new WeakMap<Simulation, Map<string, number>>();
+
 /** What the operator should look at, most urgent first. Derived only from visible state. */
 export function threats(sim: Simulation): Threat[] {
   const s = sim.state;
@@ -107,7 +109,7 @@ export function threats(sim: Simulation): Threat[] {
       else if (!zs.served && zs.backup !== 'running') out.push({ key: `ups-${z.id}`, id: z.id, level: 'critical', title: `${c.name} on battery`, detail: `${Math.ceil(zs.ups)} s left${zs.backup === 'starting' ? ', generators starting' : ''}.`, eta: zs.ups });
       else if (zs.criticalDegraded) out.push({ key: `deg-${z.id}`, id: z.id, level: 'warning', title: `${c.name} degraded`, detail: 'Supply voltage below minimum: trains slowed. Relieve its substation.', eta: 30 });
       if (zs.atsFailed && zs.criticalUp && s.time > 6.9) out.push({ key: `ats-${z.id}`, id: z.id, level: 'warning', title: `${c.name}: backup won't auto-start`, detail: sim.crewOn(z.id) ? 'Crew on the way.' : 'Send a crew before this hospital loses its feed.', eta: 45 });
-      if (z.id === 'Z06' && zs.backup === 'off' && zs.served && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: `Generators are manual, fuel for ${Math.ceil(zs.fuel)} s. Running on them protects 112 routing and takes 30 MW off Südstadt, at the far end of the west-to-east lines.`, eta: 60 });
+      if (z.id === 'Z06' && zs.backup === 'off' && zs.served && zs.fuel > 0 && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: `Generators are manual, fuel for ${Math.ceil(zs.fuel)} s. Running on them protects 112 routing and takes 30 MW off Südstadt, at the far end of the west-to-east lines.`, eta: 60 });
     }
     if (zs.shedBy === 'ufls' && !zs.breaker) out.push({ key: `ufls-${z.id}`, id: z.id, level: 'info', title: `${z.name} shed automatically`, detail: `${(z.population / 1000).toFixed(0)}k residents dark. Reconnect when there is headroom.`, eta: 70 });
   }
@@ -116,7 +118,13 @@ export function threats(sim: Simulation): Threat[] {
     if (sg && sim.check(sg.action).ok) t.suggest = sg;
   }
   const rank = { critical: 0, warning: 1, info: 2 };
-  return out.sort((a, b) => rank[a.level] - rank[b.level] || (a.eta ?? 99) - (b.eta ?? 99));
+  // Order is stable: by level, then by when the threat first appeared, so the list does not
+  // reshuffle under the player's finger as countdowns tick.
+  let seen = firstSeen.get(sim);
+  if (!seen) firstSeen.set(sim, (seen = new Map()));
+  for (const t of out) if (!seen.has(t.key + t.level)) seen.set(t.key + t.level, s.tick);
+  const now = (t: Threat) => ((t.eta ?? 99) <= 5 ? 0 : 1);
+  return out.sort((a, b) => rank[a.level] - rank[b.level] || now(a) - now(b) || seen!.get(a.key + a.level)! - seen!.get(b.key + b.level)! || a.key.localeCompare(b.key));
 }
 
 /** Where spare generation is, east first because the west-to-east lines are the usual bottleneck. */
@@ -141,50 +149,71 @@ function curtailHint(sim: Simulation): string {
   return ` Or curtail ${z.name} (about ${Math.round(zs.demand - (z.processMinimum ?? 0))} MW over 12 s, paid per MWh).`;
 }
 
-/** The single most sensible next action for a threat, or nothing when it needs judgement. */
+/**
+ * A sensible next step for a threat, shown as a hint (the player still opens the asset and
+ * acts). Only within the island whose frequency is on the dial, never against another
+ * hint, and never one that leaves the problem unsolved.
+ */
 function suggestFor(sim: Simulation, t: Threat): { action: Action; label: string } | undefined {
   const s = sim.state;
   const n = sim.net;
   const k = t.key;
-  const gen = (id: string) => n.generators.find((g) => g.id === id)!;
   const ok = (a: Action) => sim.check(a).ok;
+  const sameIsland = (f: number) => s.freq > 0 && Math.abs(f - s.freq) < 1e-6;
+  const inIsland = (genId: string) => s.gens[genId].online && sameIsland(s.gens[genId].freq);
+  const zoneInIsland = (zoneId: string) => s.zones[zoneId].served && sameIsland(s.subs[sim.feedingSub(zoneId)].freq);
+  const lowF = s.freq > 0 && s.freq < FREQ_BAND_LOW + 0.1;
+  const highF = s.freq > FREQ_BAND_HIGH;
   if (k === 'freq-low' || k === 'wind-drop') {
-    const east = n.generators.filter((g) => g.kind !== 'wind' && s.gens[g.id].online && busX(sim, g.bus) > 0 && s.gens[g.id].setpoint < g.capacity - 1);
+    const east = n.generators.filter((g) => g.kind !== 'wind' && inIsland(g.id) && busX(sim, g.bus) > 0 && s.gens[g.id].setpoint < g.capacity - 1);
     if (east.length) return { action: { type: 'setpoint', gen: east[0].id, delta: 10 }, label: `Raise ${east[0].short} +10` };
-    const ind = n.zones.find((z) => z.kind === 'industrial');
-    if (ind && s.zones[ind.id].served && !s.zones[ind.id].curtailing) return { action: { type: 'curtail', zone: ind.id }, label: `Curtail ${ind.name}` };
-    const dc = n.zones.find((z) => z.kind === 'datacentre');
-    if (dc && ok({ type: 'startBackup', zone: dc.id })) return { action: { type: 'startBackup', zone: dc.id }, label: 'Data centre to own generators' };
+    const ind = n.zones.find((z) => z.kind === 'industrial' && zoneInIsland(z.id));
+    if (ind && !s.zones[ind.id].curtailing) return { action: { type: 'curtail', zone: ind.id }, label: `Curtail ${ind.name}` };
+    const dc = n.zones.find((z) => z.kind === 'datacentre' && zoneInIsland(z.id));
+    if (dc && ok({ type: 'startBackup', zone: dc.id })) return { action: { type: 'startBackup', zone: dc.id }, label: `Run ${dc.name} on its own generators` };
     if (k === 'freq-low') {
-      const west = n.generators.find((g) => g.kind !== 'wind' && s.gens[g.id].online && s.gens[g.id].setpoint < g.capacity - 1);
-      if (west) return { action: { type: 'setpoint', gen: west.id, delta: 10 }, label: `Raise ${west.short} +10` };
+      const west = n.generators.find((g) => g.kind !== 'wind' && inIsland(g.id) && s.gens[g.id].setpoint < g.capacity - 1);
+      if (west) return { action: { type: 'setpoint', gen: west.id, delta: 10 }, label: `Raise ${west.short} +10 (west)` };
     }
     return undefined;
   }
   if (k === 'freq-high') {
-    const g = [...n.generators].filter((x) => x.kind !== 'wind' && s.gens[x.id].online && s.gens[x.id].setpoint > x.min + 10).sort((a, b) => busX(sim, a.bus) - busX(sim, b.bus))[0];
-    return g ? { action: { type: 'setpoint', gen: g.id, delta: -10 }, label: `Lower ${gen(g.id).short} −10` } : undefined;
+    // lower a unit that can actually go lower; the western one first (it also unloads the lines east)
+    const g = n.generators
+      .filter((x) => x.kind !== 'wind' && inIsland(x.id) && s.gens[x.id].pm > x.min + 5 && s.gens[x.id].setpoint > x.min + 10)
+      .sort((a, b) => busX(sim, a.bus) - busX(sim, b.bus))[0];
+    return g ? { action: { type: 'setpoint', gen: g.id, delta: -10 }, label: `Lower ${g.short} −10` } : undefined;
   }
   if (k.startsWith('ol-')) {
-    const best = sim.reliefOptions(t.id, 1)[0];
-    return best && best.worstOther <= 1 ? { action: best.action, label: best.label } : undefined;
+    // must clear this line and every other, and must not fight the frequency
+    const best = sim.reliefOptions(t.id, 6).find((o) => {
+      if (Math.max(o.loading, o.worstOther) > 1) return false;
+      if (o.action.type === 'setpoint' && ((lowF && o.action.delta < 0) || (highF && o.action.delta > 0))) return false;
+      if (o.action.type === 'transfer' && sim.zoneDef(o.action.zone).critical) return false;
+      return true;
+    });
+    return best ? { action: best.action, label: best.action.type === 'setpoint' ? `${best.label} ${best.action.delta > 0 ? '+' : '−'}${Math.abs(best.action.delta)}` : best.label } : undefined;
   }
-  if (k.startsWith('tr-') && t.detail.startsWith('Cool')) return { action: { type: 'dispatchCrew', target: t.id }, label: 'Send crew' };
-  if (k.startsWith('gas-') || (k.startsWith('ld-') && !s.known[t.id])) return { action: { type: 'investigate', target: t.id }, label: 'Investigate' };
+  if (k.startsWith('tr-') && t.detail.startsWith('Cool')) return { action: { type: 'dispatchCrew', target: t.id }, label: 'Send a crew to reset it' };
+  if (k.startsWith('gas-') || (k.startsWith('ld-') && !s.known[t.id])) return { action: { type: 'investigate', target: t.id }, label: `Investigate ${t.id}` };
   if (k.startsWith('hot-') || k.startsWith('inc-') || k.startsWith('ld-')) return offload(sim, t.id);
   if (k.startsWith('deg-')) return offload(sim, sim.feedingSub(t.id));
-  if (k.startsWith('ats-')) return sim.crewOn(t.id) ? undefined : { action: { type: 'dispatchCrew', target: t.id }, label: 'Send crew' };
+  if (k.startsWith('ats-')) return sim.crewOn(t.id) ? undefined : { action: { type: 'dispatchCrew', target: t.id }, label: 'Send a crew to the transfer switch' };
   if (k.startsWith('down-') || k.startsWith('ups-')) {
     const zs = s.zones[t.id];
-    if (zs.atsFailed) return sim.crewOn(t.id) ? undefined : { action: { type: 'dispatchCrew', target: t.id }, label: 'Send crew' };
-    if (ok({ type: 'startBackup', zone: t.id })) return { action: { type: 'startBackup', zone: t.id }, label: 'Start backup' };
+    if (zs.atsFailed) return sim.crewOn(t.id) ? undefined : { action: { type: 'dispatchCrew', target: t.id }, label: 'Send a crew to the transfer switch' };
+    if (ok({ type: 'startBackup', zone: t.id })) return { action: { type: 'startBackup', zone: t.id }, label: 'Start its backup generators' };
     return undefined;
   }
-  if (k === 'dc-ups') return { action: { type: 'startBackup', zone: t.id }, label: 'Start generators' };
+  if (k === 'dc-ups') return { action: { type: 'startBackup', zone: t.id }, label: 'Start its generators when the grid needs it' };
   if (k.startsWith('ufls-')) {
     const z = n.zones.find((x) => x.id === t.id)!;
-    const spare = n.generators.filter((g) => g.kind !== 'wind' && s.gens[g.id].online).reduce((a, g) => a + Math.max(0, g.capacity - s.gens[g.id].pm), 0);
-    return s.freq > 49.9 && spare > z.load * 1.5 ? { action: { type: 'restore', zone: z.id }, label: 'Reconnect' } : undefined;
+    const sub = sim.feedingSub(z.id);
+    const def = n.substations.find((x) => x.id === sub)!;
+    const seen = (s.known[sub]?.includes('drifting') ? s.subs[sub].loading : s.subs[sub].measured) * def.rating;
+    const spare = n.generators.filter((g) => g.kind !== 'wind' && inIsland(g.id)).reduce((a, g) => a + Math.max(0, g.capacity - s.gens[g.id].pm), 0);
+    const pickup = s.zones[z.id].demand * 1.4; // cold-load pickup
+    return s.freq > 49.9 && spare > pickup && (seen + pickup) / def.rating <= 0.9 ? { action: { type: 'restore', zone: z.id }, label: `Reconnect ${z.name}` } : undefined;
   }
   return undefined;
 }
@@ -202,7 +231,18 @@ function offload(sim: Simulation, subId: string): { action: Action; label: strin
     const seen = (s.known[to]?.includes('drifting') ? t.loading : t.measured) * def.rating;
     const after = (seen + s.zones[z.id].drawn) / def.rating;
     if (after > 0.9 || (s.known[to]?.includes('incipient') && after > 0.7)) continue;
-    if (!best || after < best.after) best = { action: { type: 'transfer', zone: z.id }, label: `Transfer ${z.name} to ${to}`, after };
+    // a hospital or other critical load is moved only when nothing else will do
+    const cost = after + (z.critical ? 1 : 0);
+    if (!best || cost < best.after) best = { action: { type: 'transfer', zone: z.id }, label: `Transfer ${z.name} to ${to}`, after: cost };
   }
-  return best && { action: best.action, label: best.label };
+  if (best) return { action: best.action, label: best.label };
+  // nothing can take the load as far as the readings go: check a reading that looks wrong
+  for (const z of sim.net.zones) {
+    if (!z.alternate || sim.feedingSub(z.id) !== subId) continue;
+    const to = s.zones[z.id].feed === 'primary' ? z.alternate : z.primary;
+    const t = s.subs[to];
+    if (!s.known[to] && t.measured > 1 && t.temp < 90) return { action: { type: 'investigate', target: to }, label: `Investigate ${to}: its reading looks too high for its temperature` };
+  }
+  if (s.known[subId]?.includes('incipient')) return { action: { type: 'isolateSub', sub: subId }, label: `Isolate ${subId} to save it (its districts go dark)` };
+  return undefined;
 }

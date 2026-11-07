@@ -28,7 +28,7 @@ export function Landing(p: Props) {
           <div className="challenge-banner">
             <div className="cb-kicker">CHALLENGE RECEIVED</div>
             <div className="cb-text">
-              <b>{p.challenge.name || 'An operator'}</b> scored <b className="accent">{p.challenge.score}/100</b> city stability ({p.challenge.grade}) in storm #{p.challenge.seed}.
+              <b>{p.challenge.name || 'An anonymous operator'}</b> scored <b className="accent">{p.challenge.score}/100</b> city stability ({p.challenge.grade}) in storm #{p.challenge.seed}.
             </div>
             <button className="cta small" onClick={p.onAcceptChallenge}>Take the same storm</button>
           </div>

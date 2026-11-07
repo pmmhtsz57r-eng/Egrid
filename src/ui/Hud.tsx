@@ -92,10 +92,10 @@ export function Hud(p: Props) {
           {list.length === 0 && <p className="muted">Nothing urgent. Watch the frequency and the feed.</p>}
           <ul>
             {list.slice(0, 6).map((t) => (
-              <li key={t.key} className={`${t.level} ${p.selected === t.id ? 'on' : ''}`} onClick={() => p.onSelect(t.id)}>
+              <li key={t.key} className={`${t.level} ${p.selected === t.id ? 'on' : ''}`} onClick={() => p.onSelect(t.suggest ? actionTarget(t.suggest.action) : t.id)}>
                 <b>{t.title}</b>
                 <span>{t.detail}</span>
-                {t.suggest && <button className="mini suggest" onClick={(e) => { e.stopPropagation(); p.onAct(t.suggest!.action); }}>{t.suggest.label}</button>}
+                {t.suggest && <em className="suggest">Try: {t.suggest.label}</em>}
               </li>
             ))}
           </ul>
@@ -189,4 +189,15 @@ function AssetList({ sim, onSelect, selected }: { sim: Simulation; onSelect: (id
       ))}
     </div>
   );
+}
+
+/** The asset whose panel holds an action, so tapping a hint opens the right controls. */
+function actionTarget(a: Action): string {
+  switch (a.type) {
+    case 'setpoint': return a.gen;
+    case 'isolateLine': case 'closeLine': return a.line;
+    case 'isolateSub': case 'energiseSub': return a.sub;
+    case 'dispatchCrew': case 'investigate': return a.target;
+    default: return a.zone;
+  }
 }

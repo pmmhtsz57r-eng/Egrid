@@ -71,7 +71,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   g.fillText('OPERATOR', pad, 410);
   g.fillStyle = '#ffffff';
   g.font = `700 52px ${display}`;
-  g.fillText(truncate(g, d.name.toUpperCase() || 'ANONYMOUS', CARD_W - pad * 2), pad, 466);
+  g.fillText(truncate(g, d.name.toUpperCase() || 'ANONYMOUS OPERATOR', CARD_W - pad * 2), pad, 466);
 
   // big stability + grade
   g.fillStyle = '#5d6c88';

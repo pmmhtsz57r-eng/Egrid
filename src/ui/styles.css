@@ -389,4 +389,4 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
 .pause-vol input { width: 180px; accent-color: var(--ok); }
 
 .challenge-banner.bad { border-color: var(--crit); }
-.urgent li .suggest { margin-top: 6px; justify-self: start; max-width: 100%; white-space: normal; text-align: left; pointer-events: auto; }
+.urgent li .suggest { margin-top: 3px; font: 600 11px var(--mono); font-style: normal; color: var(--ok); }

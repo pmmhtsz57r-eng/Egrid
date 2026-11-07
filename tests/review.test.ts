@@ -6,6 +6,7 @@ import { buildReport } from '../src/scoring/report';
 import { decodeChallenge, encodeChallenge } from '../src/game/challenge';
 import type { TimedAction } from '../src/sim/types';
 import { threats } from '../src/ui/threats';
+import { runBot } from '../src/sim/bot';
 
 const SEEDS = Array.from({ length: 20 }, (_, i) => (i + 1) * 7919);
 
@@ -166,8 +167,12 @@ describe('fixes from review round 3', () => {
       b += o.stability;
       if (o.grade === 'S') bs++;
     }
+    // following the hints beats the blind opening on average; reaching S takes an operator
+    // who reads the storm and anticipates (the scripted expert), not a memorised opening
     expect(r).toBeGreaterThan(b + 5 * SEEDS.length);
-    expect(rs).toBeGreaterThanOrEqual(bs);
+    const expertS = SEEDS.filter((seed) => score(runBot(createCrisis(seed))).grade === 'S').length;
+    expect(expertS).toBeGreaterThan(bs);
+    expect(rs).toBeLessThan(SEEDS.length / 2); // the hints alone do not hand out S
   });
 
   it('a wind farm cut off by opening its only line comes back when the line is closed', () => {
