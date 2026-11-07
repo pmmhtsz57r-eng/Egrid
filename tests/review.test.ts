@@ -243,3 +243,50 @@ describe('fixes from review round 4', () => {
     expect(sim.state.zones.Z06.fuel).toBeCloseTo(fuel, 0);
   });
 });
+
+describe('fixes from review round 6', () => {
+  /** Hint follower that keeps its recording, as in round 3. */
+  function follow(seed: number) {
+    const sim = new Simulation(createCrisis(seed));
+    const seen: Record<string, number> = {};
+    let free = 0;
+    while (!sim.state.ended) {
+      const t = sim.state.tick;
+      const list = threats(sim);
+      for (const th of list) seen[th.key] ??= t;
+      if (t >= free) for (const th of list) {
+        if (t - seen[th.key] < 20 || !th.suggest) continue;
+        if (sim.queue(th.suggest.action).ok) { free = t + 15; break; }
+      }
+      sim.step();
+    }
+    return sim;
+  }
+  const online = (sim: Simulation) => sim.net.generators.filter((g) => sim.state.gens[g.id].online).length;
+
+  it('a hinted action never sets off automatic shedding or trips a generator within 5 s', () => {
+    for (const seed of SEEDS) {
+      const sc = createCrisis(seed);
+      const rec = follow(seed).recording;
+      for (let i = 0; i < rec.length; i++) {
+        const until = rec[i].tick + 51;
+        const withIt = Simulation.replay(sc, rec.slice(0, i + 1), until);
+        const without = Simulation.replay(sc, rec.slice(0, i), until);
+        const msg = `seed ${seed}, hint ${JSON.stringify(rec[i])}`;
+        expect(withIt.state.uflsStage, msg).toBeLessThanOrEqual(without.state.uflsStage);
+        expect(online(withIt), msg).toBeGreaterThanOrEqual(online(without));
+        expect(withIt.state.collapsed && !without.state.collapsed, msg).toBe(false);
+      }
+    }
+  }, 120_000);
+
+  it('the overload hint names the tool, not the answer', () => {
+    for (const seed of SEEDS.slice(0, 5)) {
+      const sim = new Simulation(createCrisis(seed));
+      while (!sim.state.ended) {
+        for (const th of threats(sim)) if (th.key.startsWith('ol-') && th.suggest) expect(th.suggest.label).toMatch(/Grid analysis/);
+        sim.step();
+      }
+    }
+  });
+});

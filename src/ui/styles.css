@@ -335,9 +335,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
   .gauge .big small { font-size: 10px; }
   .split, .mini-note { display: none; }
   .crit-icons { gap: 4px; }
-  .ci { width: 28px; height: 28px; }
+  .ci { width: 30px; height: 32px; }
   .ci span { font-size: 12px; }
-  .ci small { display: none; }
+  .ci small { font-size: 7px; letter-spacing: -0.2px; }
   .left, .right { position: absolute; left: 0; right: 0; bottom: 0; max-height: 46%; padding: 0 8px calc(52px + env(safe-area-inset-bottom)); }
   .right { display: none; }
   .hud.has-sel .right { display: flex; }

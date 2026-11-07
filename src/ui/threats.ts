@@ -10,7 +10,7 @@ export interface Threat {
   title: string;
   detail: string;
   eta?: number;
-  /** One-tap suggestion computed from the same model as Grid analysis. */
+  /** A hint for the next step (the player still opens the asset and chooses); `action` is what it points at. */
   suggest?: { action: Action; label: string };
 }
 
@@ -111,7 +111,7 @@ export function threats(sim: Simulation): Threat[] {
       if (zs.atsFailed && zs.criticalUp && s.time > 6.9) out.push({ key: `ats-${z.id}`, id: z.id, level: 'warning', title: `${c.name}: backup won't auto-start`, detail: sim.crewOn(z.id) ? 'Crew on the way.' : 'Send a crew before this hospital loses its feed.', eta: 45 });
       if (z.id === 'Z06' && zs.backup === 'off' && zs.served && zs.fuel > 0 && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: `Generators are manual, fuel for ${Math.ceil(zs.fuel)} s. Running on them protects 112 routing and takes 30 MW off Südstadt, at the far end of the west-to-east lines.`, eta: 60 });
     }
-    if (zs.shedBy === 'ufls' && !zs.breaker) out.push({ key: `ufls-${z.id}`, id: z.id, level: 'info', title: `${z.name} shed automatically`, detail: `${(z.population / 1000).toFixed(0)}k residents dark. Reconnect when there is headroom.`, eta: 70 });
+    if (zs.shedBy === 'ufls' && !zs.breaker) out.push({ key: `ufls-${z.id}`, id: z.id, level: 'info', title: `${z.name} shed automatically`, detail: `${z.population ? `${(z.population / 1000).toFixed(0)}k residents dark` : `${z.critical?.name ?? z.name} is down`}. Reconnect when there is headroom.`, eta: 70 });
   }
   for (const t of out) {
     const sg = suggestFor(sim, t);
@@ -171,18 +171,37 @@ function suggestFor(sim: Simulation, t: Threat): { action: Action; label: string
     if (ind && !s.zones[ind.id].curtailing) return { action: { type: 'curtail', zone: ind.id }, label: `Curtail ${ind.name}` };
     const dc = n.zones.find((z) => z.kind === 'datacentre' && zoneInIsland(z.id));
     if (dc && ok({ type: 'startBackup', zone: dc.id })) return { action: { type: 'startBackup', zone: dc.id }, label: `Run ${dc.name} on its own generators` };
-    if (k === 'freq-low') {
+    // the western unit pushes power east over the usual bottleneck: not while a line is near its limit
+    if (k === 'freq-low' && !n.lines.some((l) => s.lines[l.id].closed && !s.lines[l.id].tripped && s.lines[l.id].loading > 0.9)) {
       const west = n.generators.find((g) => g.kind !== 'wind' && inIsland(g.id) && s.gens[g.id].setpoint < g.capacity - 1);
       if (west) return { action: { type: 'setpoint', gen: west.id, delta: 10 }, label: `Raise ${west.short} +10 (west)` };
     }
     return undefined;
   }
   if (k === 'freq-high') {
+    // a data centre burning limited fuel in this island is the cheapest load to give back:
+    // lowering the last controllable unit instead leaves the island hostage to that fuel
+    // surplus generation in this island right now; load given back must fit inside it, or the
+    // step itself sets off shedding
+    const units = n.generators.filter((x) => x.kind !== 'wind' && inIsland(x.id));
+    const surplus = n.generators.filter((g) => inIsland(g.id)).reduce((a, g) => a + s.gens[g.id].pm, 0)
+      - n.zones.filter((z) => zoneInIsland(z.id)).reduce((a, z) => a + s.zones[z.id].drawn, 0);
+    const dc = n.zones.find((z) => z.kind === 'datacentre' && s.zones[z.id].backup === 'running' && sameIsland(s.subs[sim.feedingSub(z.id)].freq));
+    if (dc && surplus >= s.zones[dc.id].demand && ok({ type: 'stopBackup', zone: dc.id })) return { action: { type: 'stopBackup', zone: dc.id }, label: `Return ${dc.name} to the grid` };
+    // a paid curtailment no longer needed: release it (it ramps back over 12 s)
+    const ind = n.zones.find((z) => z.kind === 'industrial' && s.zones[z.id].curtailing && zoneInIsland(z.id));
+    if (ind && surplus >= 0.5 * (ind.load - s.zones[ind.id].drawn)) return { action: { type: 'curtail', zone: ind.id }, label: `Release the ${ind.name} curtailment` };
+    // a wind farm about to lose output will pull the frequency down by itself: lowering now
+    // leaves nothing to catch it with
+    const wind = n.generators.find((g) => g.kind === 'wind' && inIsland(g.id));
+    if (wind && s.gens[wind.id].pe - Math.min(windAt(sim.scenario.windCurve, s.time + 10), windAt(sim.scenario.windCurve, s.time + 20)) > 8) return undefined;
     // lower a unit that can actually go lower; the western one first (it also unloads the lines east)
-    const g = n.generators
-      .filter((x) => x.kind !== 'wind' && inIsland(x.id) && s.gens[x.id].pm > x.min + 5 && s.gens[x.id].setpoint > x.min + 10)
+    // never the island's last controllable unit while it leans on the data centre's limited fuel
+    if (dc && units.length < 2) return undefined;
+    const g = units
+      .filter((x) => s.gens[x.id].pm > x.min + 5 && s.gens[x.id].setpoint > x.min + 10)
       .sort((a, b) => busX(sim, a.bus) - busX(sim, b.bus))[0];
-    return g ? { action: { type: 'setpoint', gen: g.id, delta: -10 }, label: `Lower ${g.short} −10` } : undefined;
+    return g ? { action: { type: 'setpoint', gen: g.id, delta: -10 }, label: `Lower ${g.short}` } : undefined;
   }
   if (k.startsWith('ol-')) {
     // must clear this line and every other, and must not fight the frequency
@@ -190,9 +209,15 @@ function suggestFor(sim: Simulation, t: Threat): { action: Action; label: string
       if (Math.max(o.loading, o.worstOther) > 1) return false;
       if (o.action.type === 'setpoint' && ((lowF && o.action.delta < 0) || (highF && o.action.delta > 0))) return false;
       if (o.action.type === 'transfer' && sim.zoneDef(o.action.zone).critical) return false;
+      if (o.action.type === 'transfer') {
+        const z = sim.zoneDef(o.action.zone);
+        const to = s.zones[z.id].feed === 'primary' ? z.alternate! : z.primary;
+        if (Math.abs(s.subs[to].freq - s.subs[sim.feedingSub(z.id)].freq) > 1e-6) return false;
+      }
       return true;
     });
-    return best ? { action: best.action, label: best.action.type === 'setpoint' ? `${best.label} ${best.action.delta > 0 ? '+' : '−'}${Math.abs(best.action.delta)}` : best.label } : undefined;
+    // the hint names the tool, not the answer: the player still weighs the options and their costs
+    return best ? { action: best.action, label: `Open ${t.id} and run Grid analysis` } : undefined;
   }
   if (k.startsWith('tr-') && t.detail.startsWith('Cool')) return { action: { type: 'dispatchCrew', target: t.id }, label: 'Send a crew to reset it' };
   if (k.startsWith('gas-') || (k.startsWith('ld-') && !s.known[t.id])) return { action: { type: 'investigate', target: t.id }, label: `Investigate ${t.id}` };
@@ -205,15 +230,11 @@ function suggestFor(sim: Simulation, t: Threat): { action: Action; label: string
     if (ok({ type: 'startBackup', zone: t.id })) return { action: { type: 'startBackup', zone: t.id }, label: 'Start its backup generators' };
     return undefined;
   }
-  if (k === 'dc-ups') return { action: { type: 'startBackup', zone: t.id }, label: 'Start its generators when the grid needs it' };
-  if (k.startsWith('ufls-')) {
-    const z = n.zones.find((x) => x.id === t.id)!;
-    const sub = sim.feedingSub(z.id);
-    const def = n.substations.find((x) => x.id === sub)!;
-    const seen = (s.known[sub]?.includes('drifting') ? s.subs[sub].loading : s.subs[sub].measured) * def.rating;
-    const spare = n.generators.filter((g) => g.kind !== 'wind' && inIsland(g.id)).reduce((a, g) => a + Math.max(0, g.capacity - s.gens[g.id].pm), 0);
-    const pickup = s.zones[z.id].demand * 1.4; // cold-load pickup
-    return s.freq > 49.9 && spare > pickup && (seen + pickup) / def.rating <= 0.9 ? { action: { type: 'restore', zone: z.id }, label: `Reconnect ${z.name}` } : undefined;
+  if (k === 'dc-ups') {
+    // fuel is finite: only worth burning while the grid is actually short or the lines east are hot
+    const sub = sim.feedingSub(t.id);
+    const short = lowF || s.subs[sub].loading > 0.95 || n.lines.some((l) => s.lines[l.id].loading > 1);
+    return short ? { action: { type: 'startBackup', zone: t.id }, label: 'Its generators would help now (fuel is limited)' } : undefined;
   }
   return undefined;
 }
@@ -228,9 +249,12 @@ function offload(sim: Simulation, subId: string): { action: Action; label: strin
     const def = sim.net.substations.find((x) => x.id === to)!;
     const t = s.subs[to];
     if (!t.closed || t.tripped || t.damaged || !t.energised) continue;
+    // only within the same island: moving load into another island can set off its shedding
+    if (Math.abs(t.freq - s.subs[subId].freq) > 1e-6) continue;
     const seen = (s.known[to]?.includes('drifting') ? t.loading : t.measured) * def.rating;
     const after = (seen + s.zones[z.id].drawn) / def.rating;
     if (after > 0.9 || (s.known[to]?.includes('incipient') && after > 0.7)) continue;
+    if (sim.transferEffect(z.id) > 0.95) continue; // must not push a line towards its limit
     // a hospital or other critical load is moved only when nothing else will do
     const cost = after + (z.critical ? 1 : 0);
     if (!best || cost < best.after) best = { action: { type: 'transfer', zone: z.id }, label: `Transfer ${z.name} to ${to}`, after: cost };

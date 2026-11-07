@@ -313,7 +313,7 @@ export function App() {
   const challengeUrl = (() => {
     const g = game.current;
     if (!g || screen !== 'results') return location.origin + location.pathname;
-    const code = encodeChallenge({ seed: g.scenario.seed, name: name || 'Operator', mode: g.mode, actions: g.sim.recording });
+    const code = encodeChallenge({ seed: g.scenario.seed, name: name.trim(), mode: g.mode, actions: g.sim.recording });
     return `${location.origin}${location.pathname}#c=${code}`;
   })();
 

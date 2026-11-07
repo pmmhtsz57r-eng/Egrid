@@ -420,6 +420,21 @@ export class Simulation {
     return { worst, worstId, islands: after < before };
   }
 
+  /** The worst line loading after moving a zone to its other feed (DC flow preview). */
+  transferEffect(zoneId: string): number {
+    const z = this.zoneDef(zoneId);
+    const zs = this.state.zones[zoneId];
+    if (!z.alternate || !zs.served) return 0;
+    const base = this.snapshot();
+    const target = zs.feed === 'primary' ? z.alternate : z.primary;
+    base.busLoad[this.busIndex.get(this.feedingSub(zoneId))!] -= zs.drawn;
+    base.busLoad[this.busIndex.get(target)!] += zs.drawn;
+    const f = this.flowsFor(base.busLoad, base.gen);
+    let worst = 0;
+    for (const l of this.net.lines) if (f[l.id] !== undefined) worst = Math.max(worst, Math.abs(f[l.id]) / l.limit);
+    return worst;
+  }
+
   /** Bus loads and generator outputs as they stand this tick. */
   private snapshot() {
     const s = this.state;
