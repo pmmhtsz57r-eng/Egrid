@@ -22,7 +22,10 @@ export interface Report {
   helped: DecisionImpact[];
   harmed: DecisionImpact[];
   missed: DecisionImpact[];
+  /** Distinct decisions made. */
   decisions: number;
+  /** How many of them were measured one by one (the rest still count in the comparison with doing nothing). */
+  measured: number;
 }
 
 const THRESHOLD = 2;
@@ -71,19 +74,30 @@ function play(sc: ScenarioDef, rec: TimedAction[]) {
   return score(Simulation.replay(sc, rec));
 }
 
-/** Candidate interventions a strong operator might have made, timed to when the cue appeared. */
+/** A human needs a moment to read a cue and act: candidates are placed this long after it. */
+const REACTION_TICKS = 20;
+
+/**
+ * Candidate interventions a strong operator might have made. Each is placed a reaction time
+ * after the alert that cued it in the player's own run, so nothing relies on hindsight.
+ */
 function opportunities(sc: ScenarioDef, played: Simulation, rec: TimedAction[]): TimedAction[] {
   const s = played.state;
   const out: TimedAction[] = [];
   const did = (pred: (a: Action) => boolean) => rec.some((r) => pred(r.action));
   const cue = (prefix: string) => s.alerts.find((a) => a.key.startsWith(prefix))?.tick;
+  const notice = (subject: string) => s.alerts.find((a) => a.key.startsWith('notice-') && a.subject === subject && a.tick > 0)?.tick;
+  const after = (t: number | undefined) => (t === undefined ? undefined : t + REACTION_TICKS);
 
   const ats = sc.atsFailed;
-  if (!did((a) => a.type === 'dispatchCrew' && a.target === ats)) out.push({ tick: 72, action: { type: 'dispatchCrew', target: ats } });
-  if (!did((a) => a.type === 'startBackup' && a.zone === 'Z06')) out.push({ tick: 112, action: { type: 'startBackup', zone: 'Z06' } });
-  if (!did((a) => a.type === 'curtail')) out.push({ tick: 50, action: { type: 'curtail', zone: 'Z02' } });
-  if (!did((a) => a.type === 'setpoint' && a.gen === 'G3' && a.delta > 0)) {
-    for (const t of [60, 61, 62]) out.push({ tick: t, action: { type: 'setpoint', gen: 'G3', delta: 10 } });
+  const atsAt = after(notice(ats));
+  if (atsAt !== undefined && !did((a) => a.type === 'dispatchCrew' && a.target === ats)) out.push({ tick: atsAt, action: { type: 'dispatchCrew', target: ats } });
+  const dcAt = after(notice('Z06'));
+  if (dcAt !== undefined && !did((a) => a.type === 'startBackup' && a.zone === 'Z06')) out.push({ tick: dcAt, action: { type: 'startBackup', zone: 'Z06' } });
+  const windAt = after(notice('G2'));
+  if (windAt !== undefined && !did((a) => a.type === 'curtail')) out.push({ tick: windAt, action: { type: 'curtail', zone: 'Z02' } });
+  if (windAt !== undefined && !did((a) => a.type === 'setpoint' && a.gen === 'G3' && a.delta > 0)) {
+    for (const t of [0, 1, 2]) out.push({ tick: windAt + t, action: { type: 'setpoint', gen: 'G3', delta: 10 } });
   }
   const gas = s.alerts.find((a) => a.key.startsWith('gas-'));
   if (gas?.subject && !did((a) => a.type === 'investigate' && a.target === gas.subject)) out.push({ tick: gas.tick + 2, action: { type: 'investigate', target: gas.subject } });
@@ -106,7 +120,30 @@ function groupKey(t: TimedAction) {
   return t.action.type === 'setpoint' ? `sp-${t.action.gen}-${Math.sign(t.action.delta)}-${Math.floor(t.tick / 30)}` : `${t.tick}-${JSON.stringify(t.action)}`;
 }
 
-export function buildReport(sc: ScenarioDef, rec: TimedAction[], maxDecisions = 30): Report {
+/** Curtail and protect are switches: the same action turns them on and off again. */
+const toggleKey = (a: Action) => (a.type === 'curtail' || a.type === 'protect' ? `${a.type}-${a.zone}` : null);
+
+/**
+ * Removing one press of a switch would flip the meaning of every later press, so "without
+ * this decision" removes that press and every later press of the same switch.
+ */
+function without(rec: TimedAction[], group: TimedAction[]) {
+  const drop = new Set(group);
+  for (const g of group) {
+    const k = toggleKey(g.action);
+    if (!k) continue;
+    for (const r of rec) if (r.tick >= g.tick && toggleKey(r.action) === k) drop.add(r);
+  }
+  return rec.filter((r) => !drop.has(r));
+}
+
+function describeToggle(sim: Simulation, a: Action, on: boolean) {
+  const name = sim.label((a as { zone: string }).zone);
+  if (a.type === 'curtail') return on ? `Curtailed ${name}` : `Released the curtailment of ${name}`;
+  return on ? `Exempted ${name} from automatic shedding` : `Removed the shedding exemption for ${name}`;
+}
+
+export function buildReport(sc: ScenarioDef, rec: TimedAction[], maxDecisions = 60): Report {
   const played = Simulation.replay(sc, rec);
   const outcome = score(played);
   const idle = play(sc, []);
@@ -122,21 +159,32 @@ export function buildReport(sc: ScenarioDef, rec: TimedAction[], maxDecisions = 
   }
   const helped: DecisionImpact[] = [];
   const harmed: DecisionImpact[] = [];
+  // switch state after each applied press, in order
+  const pressedOn = new Map<TimedAction, boolean>();
+  const state = new Map<string, boolean>();
+  for (const r of appliedRec) {
+    const k = toggleKey(r.action);
+    if (!k) continue;
+    const on = !(state.get(k) ?? false);
+    state.set(k, on);
+    pressedOn.set(r, on);
+  }
   const entries = [...groups.values()].slice(0, maxDecisions);
   for (const g of entries) {
-    const without = play(sc, rec.filter((r) => !g.includes(r)));
-    const delta = outcome.stability - without.stability;
+    const alt = play(sc, without(rec, g));
+    const delta = outcome.stability - alt.stability;
     const first = g[0];
     const total = first.action.type === 'setpoint' ? g.reduce((a, r) => a + (r.action as { delta: number }).delta, 0) : 0;
     const text = first.action.type === 'setpoint'
       ? describeAction(played, { ...first.action, delta: total })
-      : describeAction(played, first.action);
+      : toggleKey(first.action) ? describeToggle(played, first.action, pressedOn.get(first) ?? true)
+        : describeAction(played, first.action);
     const impact: DecisionImpact = { tick: first.tick, time: fmtTime(first.tick / 10), text, delta, consequence: '' };
     if (delta >= THRESHOLD) {
-      impact.consequence = `Without it, ${consequence(outcome, without)}.`;
+      impact.consequence = `Without it, ${consequence(outcome, alt)}.`;
       helped.push(impact);
     } else if (delta <= -THRESHOLD) {
-      impact.consequence = `Without it, ${consequence(outcome, without)}.`;
+      impact.consequence = `Without it, ${consequence(outcome, alt)}.`;
       harmed.push(impact);
     }
   }
@@ -166,5 +214,5 @@ export function buildReport(sc: ScenarioDef, rec: TimedAction[], maxDecisions = 
   }
   missed.sort((a, b) => b.delta - a.delta);
 
-  return { outcome, idle, helped: helped.slice(0, 4), harmed: harmed.slice(0, 4), missed: missed.slice(0, 3), decisions: groups.size };
+  return { outcome, idle, helped: helped.slice(0, 4), harmed: harmed.slice(0, 4), missed: missed.slice(0, 3), decisions: groups.size, measured: entries.length };
 }

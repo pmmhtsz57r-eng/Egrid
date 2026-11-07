@@ -319,7 +319,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
 }
 
 /* ---------------------------------------------------------------- phone */
-@media (max-width: 760px) {
+@media (max-width: 900px), (max-height: 620px) {
   .hud { display: flex; flex-direction: column; padding: max(8px, env(safe-area-inset-top)) 8px 0; gap: 6px; }
   .topbar { grid-template-columns: auto 1fr auto; gap: 8px; }
   .brand .sub, .vol { display: none; }
@@ -367,7 +367,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
   .grade .letter { font-size: 70px; }
   .cta { padding: 18px 30px; font-size: 18px; }
 }
-@media (min-width: 761px) {
+@media (min-width: 901px) and (min-height: 621px) {
   .assets { display: block; max-height: 34%; overflow-y: auto; }
   .assets .group h4 { margin: 8px 0 4px; font: 600 10px var(--mono); color: var(--dim); letter-spacing: 0.14em; text-transform: uppercase; }
 }
@@ -383,3 +383,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+.pause-vol { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; font: 600 12px var(--mono); letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+.pause-vol input { width: 180px; accent-color: var(--ok); }

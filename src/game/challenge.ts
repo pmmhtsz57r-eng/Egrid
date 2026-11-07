@@ -1,4 +1,5 @@
 import type { Action, TimedAction } from '../sim/types';
+import { MAX_ACTIONS } from '../sim/engine';
 
 /**
  * Challenge links carry the seed and the full decision recording, not a score. The receiver's
@@ -49,7 +50,7 @@ const b64 = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, 
 const unb64 = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
 
 export function encodeChallenge(c: Challenge): string {
-  const acts = c.actions.map((t) => `${t.tick.toString(36)}.${encodeAction(t.action)}`).join('~');
+  const acts = c.actions.slice(0, MAX_ACTIONS).map((t) => `${t.tick.toString(36)}.${encodeAction(t.action)}`).join('~');
   return b64(JSON.stringify({ v: 1, s: c.seed, n: c.name.slice(0, 24), m: c.mode === 'daily' ? 'd' : 'c', a: acts }));
 }
 
@@ -65,7 +66,7 @@ export function decodeChallenge(code: string): Challenge | null {
       if (!Number.isFinite(tick) || tick < 0 || tick > 900 || !action) return null;
       actions.push({ tick, action });
     }
-    if (actions.length > 400) return null;
+    if (actions.length > MAX_ACTIONS) return null;
     return { seed: o.s >>> 0, name: String(o.n ?? 'Operator').slice(0, 24), mode: o.m === 'd' ? 'daily' : 'crisis', actions };
   } catch {
     return null;

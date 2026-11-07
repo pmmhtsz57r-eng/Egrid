@@ -50,7 +50,7 @@ export function Results(p: Props) {
     setMsg(t);
     setTimeout(() => setMsg(''), 2600);
   };
-  const text = `I kept Nova City at ${o.stability}% stability (${o.grade}: ${o.title}) in BLACKOUT. Same storm, your decisions. Would you have done better?`;
+  const text = `I scored ${o.stability}/100 city stability (${o.grade}: ${o.title}) in BLACKOUT. Same storm, your decisions. Would you have done better?`;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(`${text} ${p.challengeUrl}`);
@@ -84,19 +84,19 @@ export function Results(p: Props) {
           <div className="score-row">
             <div className="stability">
               <label>CITY STABILITY</label>
-              <div className="num">{shown}<small>%</small></div>
+              <div className="num">{shown}<small>/100</small></div>
             </div>
             <div className={`grade ${GRADE_CLASS[o.grade]} ${stamp ? 'stamp' : ''}`}>
               <div className="letter">{o.grade}</div>
               <div className="gt">{o.title}</div>
             </div>
           </div>
-          {p.best && (p.best.isNew ? <div className="badge-new">NEW PERSONAL BEST</div> : <div className="muted">Your best on this storm: {p.best.best}%</div>)}
+          {p.best && (p.best.isNew ? <div className="badge-new">NEW PERSONAL BEST</div> : <div className="muted">Your best on this storm: {p.best.best}/100</div>)}
           {p.rival && (
             <div className={`versus ${o.stability > p.rival.score ? 'win' : o.stability < p.rival.score ? 'lose' : 'draw'}`}>
-              <div><small>YOU</small><b>{o.stability}%</b></div>
+              <div><small>YOU</small><b>{o.stability}</b></div>
               <div className="vs">{o.stability > p.rival.score ? 'YOU WIN' : o.stability < p.rival.score ? 'THEY WIN' : 'DRAW'}</div>
-              <div><small>{p.rival.name.toUpperCase() || 'RIVAL'}</small><b>{p.rival.score}%</b></div>
+              <div><small>{p.rival.name.toUpperCase() || 'RIVAL'}</small><b>{p.rival.score}</b></div>
             </div>
           )}
         </div>
@@ -116,13 +116,14 @@ export function Results(p: Props) {
           {!r && <div className="replaying"><span className="spinner" />Replaying your decisions…</div>}
           {r && (
             <>
-              <Section title="Decisions that helped" cls="good" items={r.helped} empty="No single decision changed the outcome by 2 points or more." sign="+" />
-              <Section title="Decisions that caused damage" cls="bad" items={r.harmed} empty="None of your decisions made things worse. Clean shift." sign="" />
+              <Section title="Decisions that helped" cls="good" items={r.helped} empty={r.decisions === 0 ? 'You made no decisions.' : 'No single decision gained 2 points or more on its own.'} sign="+" />
+              <Section title="Decisions that caused damage" cls="bad" items={r.harmed} empty={r.decisions === 0 ? 'You made no decisions.' : o.stability < r.idle.stability ? `No single decision cost 2 points or more on its own, but together they finished ${r.idle.stability - o.stability} points below doing nothing.` : 'No single decision cost 2 points or more on its own.'} sign="" />
               <Section title="Missed opportunities" cls="miss" items={r.missed} empty="We could not find a single extra action that would have helped. Impressive." sign="+" />
               <div className="idle">
-                <b>If nobody had touched the controls:</b> {r.idle.collapsed ? `total blackout at ${Math.floor(r.idle.collapseTime / 60)}:${String(Math.floor(r.idle.collapseTime % 60)).padStart(2, '0')}` : `${r.idle.stability}% stability (${r.idle.grade})`}
+                <b>If nobody had touched the controls:</b> {r.idle.collapsed ? `total blackout at ${Math.floor(r.idle.collapseTime / 60)}:${String(Math.floor(r.idle.collapseTime % 60)).padStart(2, '0')}` : `${r.idle.stability}/100 stability (${r.idle.grade})`}
                 {r.idle.critical.filter((c) => !c.protected).length > 0 && `, ${r.idle.critical.filter((c) => !c.protected).map((c) => c.name).join(' and ')} would have lost power`}.
-                {' '}{o.stability === r.idle.stability ? 'Your shift ended exactly where doing nothing would have.' : o.stability > r.idle.stability ? `You did ${o.stability - r.idle.stability} points better.` : `You did ${r.idle.stability - o.stability} points worse.`}
+                {' '}{o.stability === r.idle.stability ? 'Your shift ended exactly where doing nothing would have.' : o.stability > r.idle.stability ? `All your decisions together: ${o.stability - r.idle.stability} points better.` : `All your decisions together: ${r.idle.stability - o.stability} points worse.`}
+                {r.measured < r.decisions && <span className="muted"> The first {r.measured} of your {r.decisions} decisions were measured one by one; this comparison covers all of them.</span>}
               </div>
             </>
           )}

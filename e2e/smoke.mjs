@@ -41,6 +41,10 @@ await page.waitForSelector('.results', { timeout: 60000 });
 await page.waitForTimeout(3500);
 await page.screenshot({ path: `${out}/${tag}-6-results.png` });
 await page.waitForSelector('.rsec', { timeout: 20000 });
+const stability = await page.locator('.stability .num').innerText();
+if (!/^\d+/.test(stability)) { console.error('E2E FAILED: no stability score shown', stability); process.exit(1); }
+const sections = await page.locator('.rsec').count();
+if (sections < 3) { console.error('E2E FAILED: report sections missing', sections); process.exit(1); }
 await page.screenshot({ path: `${out}/${tag}-7-report.png`, fullPage: true });
 const card = await page.evaluate(() => document.querySelector('.card-wrap canvas')?.toDataURL('image/png').length ?? 0);
 console.log('card data url length', card);
@@ -49,3 +53,9 @@ await page.waitForTimeout(500);
 await page.screenshot({ path: `${out}/${tag}-8-share.png` });
 console.log('errors', errors.length ? errors : 'none');
 await browser.close();
+// assertions: the run must reach a scored report with a drawn card and no errors
+const fail = [];
+if (card < 50000) fail.push(`share card looks empty (${card} bytes)`);
+if (errors.length) fail.push(`${errors.length} console errors`);
+if (fail.length) { console.error('E2E FAILED:', fail.join('; ')); process.exit(1); }
+console.log('E2E PASSED', tag);

@@ -97,14 +97,17 @@ export function AssetPanel({ sim, id, onAct, onSelect, onClose }: Props) {
     const lines = n.lines.filter((l) => l.from === sub.id || l.to === sub.id);
     const known = s.known[sub.id];
     const eta = xfmrEta(t.temp, t.loading);
-    const level = t.damaged ? 'dead' : t.tripped || !t.closed ? 'dead' : t.temp > 120 || t.measured > 1 ? 'crit' : t.temp > 105 ? 'warn' : 'ok';
+    // Until the analyst finds a drifting sensor, the operator sees only the sensor reading.
+    const driftKnown = !!known?.includes('drifting');
+    const shown = driftKnown ? t.loading : t.measured;
+    const level = t.damaged ? 'dead' : t.tripped || !t.closed ? 'dead' : t.temp > 120 || shown > 1 ? 'crit' : t.temp > 105 ? 'warn' : 'ok';
     body = (
       <>
         <div className="row-pills">
           <Status level={level}>{t.damaged ? 'DESTROYED' : t.tripped ? 'TRIPPED' : !t.closed ? 'ISOLATED' : !t.energised ? 'NO SUPPLY' : 'IN SERVICE'}</Status>
           {s.alertKeys[`gas-${sub.id}`] !== undefined && !t.damaged && <Status level="warn">GAS ALARM</Status>}
         </div>
-        <Meter label="Loading (sensor)" value={t.measured} max={1.5} warn={0.9} crit={1.0} right={`${pct(t.measured)} · ${mw(t.load)} of ${mw(sub.rating)}`} />
+        <Meter label={driftKnown ? 'Loading (true, sensor faulty)' : 'Loading (sensor)'} value={shown} max={1.5} warn={0.9} crit={1.0} right={`${pct(shown)} · ${mw(shown * sub.rating)} of ${mw(sub.rating)}${driftKnown ? ` · sensor says ${pct(t.measured)}` : ''}`} />
         <Meter label="Oil temperature" value={t.temp} max={160} warn={105} crit={XFMR_TRIP} right={`${Math.round(t.temp)} °C${eta !== Infinity && !t.tripped ? ` · trips in ${Math.ceil(eta)} s` : ''}`} />
         {known && <p className="note info">Investigation: {known}</p>}
         <p className="hint">Hot transformers trip at {XFMR_TRIP} °C and need a crew to reset once below {XFMR_RESET_TEMP} °C. Above 125 °C the insulation is being damaged.</p>
@@ -140,7 +143,7 @@ export function AssetPanel({ sim, id, onAct, onSelect, onClose }: Props) {
           <div className="analysis">
             <button className="act primary" onClick={() => setAnalysis(analysis === line.id ? null : line.id)}>
               <span className="act-label">{analysis === line.id ? 'Hide grid analysis' : 'Grid analysis'}</span>
-              <span className="act-cost">Which single action relieves this line most?</span>
+              <span className="act-cost">Single actions that relieve this line, cheapest that clears it first</span>
             </button>
             {options && (
               <ol className="relief">

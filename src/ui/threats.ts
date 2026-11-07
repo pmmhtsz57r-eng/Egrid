@@ -1,4 +1,4 @@
-import { LINE_HEAT_K, XFMR_ALARM, XFMR_RESET_TEMP, XFMR_TAU, XFMR_TRIP, XFMR_AMBIENT, XFMR_RISE, type Simulation } from '../sim/engine';
+import { LINE_HEAT_K, XFMR_DAMAGE_START, XFMR_ALARM, XFMR_RESET_TEMP, XFMR_TAU, XFMR_TRIP, XFMR_AMBIENT, XFMR_RISE, windAt, type Simulation } from '../sim/engine';
 
 export type Level = 'critical' | 'warning' | 'info';
 
@@ -41,11 +41,18 @@ export function threats(sim: Simulation): Threat[] {
     out.push({
       key: 'freq-low', id: 'G1', level: f < 49.2 ? 'critical' : 'warning',
       title: `Frequency ${f.toFixed(2)} Hz`,
-      detail: `Demand exceeds generation${deficit > 1 ? ` by ${Math.round(deficit)} MW` : ''}. Automatic shedding at 49.0 Hz.`,
+      detail: `${deficit > 1 ? `Short by ${Math.round(deficit)} MW. ` : ''}${headroom(sim)} Automatic shedding at 49.0 Hz.`,
       eta: f < 49.2 ? 3 : 10,
     });
   } else if (f > 50.4) {
     out.push({ key: 'freq-high', id: 'G1', level: f > 51 ? 'critical' : 'warning', title: `Frequency ${f.toFixed(2)} Hz`, detail: 'Too much generation. Lower output; generators trip at 52 Hz.', eta: 8 });
+  }
+
+  const wind = n.generators.find((g) => g.kind === 'wind');
+  if (wind && s.gens[wind.id].online && f >= 49.6) {
+    const gs = s.gens[wind.id];
+    const ahead = windAt(sim.scenario.windCurve, s.time + 10);
+    if (gs.pe - ahead > 12) out.push({ key: 'wind-drop', id: wind.id, level: 'warning', title: `${wind.short} output falling`, detail: `Forecast ${Math.round(ahead)} MW in 10 s (now ${Math.round(gs.pe)}). Raise other generation before the frequency drops.`, eta: 15 });
   }
 
   for (const l of n.lines) {
@@ -70,9 +77,15 @@ export function threats(sim: Simulation): Threat[] {
     if (!t.closed || !t.energised) continue;
     const eta = xfmrEta(t.temp, t.loading);
     if (t.temp > XFMR_ALARM - 5 || eta < 25) {
-      out.push({ key: `hot-${sub.id}`, id: sub.id, level: t.temp > 125 || eta < 10 ? 'critical' : 'warning', title: `${sub.id} transformer ${Math.round(t.temp)} °C`, detail: eta === Infinity ? 'Hot but stable.' : `Trips at ${XFMR_TRIP} °C in ${secs(eta)}. Move load away.`, eta });
+      const damaging = t.temp > XFMR_DAMAGE_START;
+      const detail = eta !== Infinity
+        ? `Trips at ${XFMR_TRIP} °C in ${secs(eta)}.${damaging ? ' Insulation is being damaged now.' : ''} Move load away.`
+        : damaging ? `Above ${XFMR_DAMAGE_START} °C the insulation is being damaged. Move load away.` : 'Hot, but settling below the trip temperature.';
+      out.push({ key: `hot-${sub.id}`, id: sub.id, level: damaging || eta < 10 ? 'critical' : 'warning', title: `${sub.id} transformer ${Math.round(t.temp)} °C`, detail, eta: damaging ? Math.min(eta, 8) : eta });
     } else if (t.measured > 1) {
-      out.push({ key: `ld-${sub.id}`, id: sub.id, level: 'warning', title: `${sub.id} reports ${Math.round(t.measured * 100)}% load`, detail: s.known[sub.id] ?? `Temperature is ${Math.round(t.temp)} °C. Investigate before acting?`, eta: 40 });
+      const driftKnown = !!s.known[sub.id]?.includes('drifting');
+      if (!driftKnown) out.push({ key: `ld-${sub.id}`, id: sub.id, level: 'warning', title: `${sub.id} reports ${Math.round(t.measured * 100)}% load`, detail: `But the oil is only ${Math.round(t.temp)} °C. Investigate before acting?`, eta: 40 });
+      else if (t.loading > 1) out.push({ key: `ld-${sub.id}`, id: sub.id, level: 'warning', title: `${sub.id} truly at ${Math.round(t.loading * 100)}% load`, detail: 'Sensor is faulty, but the real loading is still high. Move load away.', eta: 30 });
     }
     if (s.alertKeys[`gas-${sub.id}`] !== undefined && !s.known[sub.id]) {
       out.push({ key: `gas-${sub.id}`, id: sub.id, level: 'warning', title: `${sub.id} gas-in-oil alarm`, detail: 'Unknown cause. Investigate.', eta: 25 });
@@ -90,10 +103,24 @@ export function threats(sim: Simulation): Threat[] {
       else if (!zs.served && zs.backup !== 'running') out.push({ key: `ups-${z.id}`, id: z.id, level: 'critical', title: `${c.name} on battery`, detail: `${Math.ceil(zs.ups)} s left${zs.backup === 'starting' ? ', generators starting' : ''}.`, eta: zs.ups });
       else if (zs.criticalDegraded) out.push({ key: `deg-${z.id}`, id: z.id, level: 'warning', title: `${c.name} degraded`, detail: 'Supply voltage below minimum: trains slowed. Relieve its substation.', eta: 30 });
       if (zs.atsFailed && zs.criticalUp && s.time > 6.9) out.push({ key: `ats-${z.id}`, id: z.id, level: 'warning', title: `${c.name}: backup won't auto-start`, detail: sim.crewOn(z.id) ? 'Crew on the way.' : 'Send a crew before this hospital loses its feed.', eta: 45 });
-      if (z.id === 'Z06' && zs.backup === 'off' && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: 'Generators are manual. Starting them also frees 30 MW.', eta: 60 });
+      if (z.id === 'Z06' && zs.backup === 'off' && s.time > 10.9) out.push({ key: 'dc-ups', id: z.id, level: 'info', title: 'Data centre UPS weak', detail: 'Generators are manual. Running on them protects 112 routing and takes 30 MW off Westpark, in the west.', eta: 60 });
     }
     if (zs.shedBy === 'ufls' && !zs.breaker) out.push({ key: `ufls-${z.id}`, id: z.id, level: 'info', title: `${z.name} shed automatically`, detail: `${(z.population / 1000).toFixed(0)}k residents dark. Reconnect when there is headroom.`, eta: 70 });
   }
   const rank = { critical: 0, warning: 1, info: 2 };
   return out.sort((a, b) => rank[a.level] - rank[b.level] || (a.eta ?? 99) - (b.eta ?? 99));
 }
+
+/** Where spare generation is, east first because the west-to-east lines are the usual bottleneck. */
+function headroom(sim: Simulation): string {
+  const s = sim.state;
+  const spare = sim.net.generators
+    .filter((g) => g.kind !== 'wind' && s.gens[g.id].online)
+    .map((g) => ({ g, mw: Math.max(0, g.capacity - s.gens[g.id].setpoint) }))
+    .filter((x) => x.mw >= 5)
+    .sort((a, b) => busX(sim, b.g.bus) - busX(sim, a.g.bus));
+  if (!spare.length) return 'No generation headroom left: reduce demand.';
+  return 'Headroom: ' + spare.map((x) => `${x.g.short} +${Math.round(x.mw)} MW`).join(', ') + '.';
+}
+
+const busX = (sim: Simulation, id: string) => sim.net.buses.find((b) => b.id === id)?.pos[0] ?? 0;

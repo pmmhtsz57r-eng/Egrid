@@ -79,7 +79,12 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   g.fillText('CITY STABILITY', pad, 552);
   g.fillStyle = accent;
   g.font = `700 190px ${display}`;
-  g.fillText(`${o.stability}%`, pad - 8, 720);
+  const num = `${o.stability}`;
+  g.fillText(num, pad - 8, 720);
+  const nw = g.measureText(num).width;
+  g.fillStyle = '#7f8faa';
+  g.font = `700 54px ${display}`;
+  g.fillText('/100', pad - 8 + nw + 12, 720);
   // grade badge
   const bx = CARD_W - pad - 230;
   g.strokeStyle = accent;
@@ -122,6 +127,10 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   // frequency trace
   drawTrace(g, d.timeline, pad, 1105, CARD_W - pad * 2, 60, accent);
 
+  // dark plate so the footer stays readable over the skyline
+  g.fillStyle = 'rgba(4,6,12,0.82)';
+  roundRect(g, pad - 24, 1188, CARD_W - (pad - 24) * 2, 150, 18);
+  g.fill();
   g.fillStyle = '#ffffff';
   g.font = `700 46px ${display}`;
   g.textAlign = 'center';

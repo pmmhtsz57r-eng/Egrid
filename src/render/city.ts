@@ -124,7 +124,8 @@ export class CityRenderer {
   readonly controls: OrbitControls;
   private composer: EffectComposer | null = null;
   private bloom: UnrealBloomPass | null = null;
-  private clock = new THREE.Clock();
+  /** Wall-clock for animation only (never feeds the simulation). */
+  private clock = { start: performance.now(), last: performance.now(), elapsedTime: 0, getDelta() { const now = performance.now(); const d = (now - this.last) / 1000; this.last = now; this.elapsedTime = (now - this.start) / 1000; return d; } };
   private zones = new Map<string, ZoneVisual>();
   private lines: LineVisual[] = [];
   private feeders: { zone: string; curve: THREE.CatmullRomCurve3; material: THREE.MeshBasicMaterial; start: number; particles: number; offset: number }[] = [];

@@ -298,6 +298,8 @@ export interface SimState {
   investigation: Investigation | null;
   known: Record<string, string>;
   mobile: { status: 'ready' | 'travelling' | 'connected'; zone?: string; timer: number };
+  /** Engine bookkeeping. Kept in state so a snapshot or clone resumes exactly. */
+  internal: { eventsDone: number; extraDemand: Record<string, number>; uflsTimers: Record<string, number>; uflsLastTick: number };
   uflsStage: number;
   wind: number;
   totalDemand: number;

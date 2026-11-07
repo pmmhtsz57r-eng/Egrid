@@ -16,6 +16,12 @@ export const LOAD_DAMPING = 1.5;
 export const DROOP = 0.04;
 export const UFLS_STAGES = [49.0, 48.7, 48.4] as const;
 export const UFLS_DELAY = 0.3;
+/** Decisions per shift. Keeps every recording small enough to travel in a challenge link. */
+export const MAX_ACTIONS = 400;
+/** Over-speed (load rejection) response of synchronous units, fraction of rating per second. */
+export const OVERSPEED_RATE = 0.5;
+/** Minimum time between two UFLS stages operating (stage grading), so the frequency can respond before more load is cut. */
+export const UFLS_GRADE = 0.2;
 export const GEN_UF_TRIP = 47.5;
 export const GEN_OF_TRIP = 52.0;
 export const GEN_FREQ_DELAY = 1.0;
@@ -44,7 +50,7 @@ export const COLD_LOAD_DECAY = 10;
 export const FAULT_CLOSE_HEAT = 12;
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
-const dist = (a: Vec2, b: Vec2) => Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2);
+const dist = (a: Vec2, b: Vec2) => { const dx = a[0] - b[0]; const dy = a[1] - b[1]; return Math.sqrt(dx * dx + dy * dy); };
 
 export function windAt(curve: [number, number][], t: number): number {
   if (t <= curve[0][0]) return curve[0][1];
@@ -76,7 +82,6 @@ export class Simulation {
   state: SimState;
   private pending: Action[] = [];
   private busIndex = new Map<string, number>();
-  private eventsDone = 0;
   readonly recording: TimedAction[] = [];
 
   constructor(scenario: ScenarioDef) {
@@ -134,6 +139,7 @@ export class Simulation {
       ],
       investigation: null, known: {},
       mobile: { status: 'ready', timer: 0 },
+      internal: { eventsDone: 0, extraDemand: {}, uflsTimers: {}, uflsLastTick: -1000 },
       uflsStage: 0, wind: windAt(sc.windCurve, 0), totalDemand: 0, totalServed: 0, totalGen: 0, freq: F0,
       alerts: [], alertKeys: {}, collapsed: false, collapseTick: -1, ended: false,
       metrics: {
@@ -202,6 +208,7 @@ export class Simulation {
     const s = this.state;
     if (s.ended) return { ok: false, reason: 'The incident is over.' };
     const no = (reason: string): Check => ({ ok: false, reason });
+    if (this.recording.length + this.pending.length >= MAX_ACTIONS) return no(`Decision limit reached (${MAX_ACTIONS} per shift).`);
     switch (a.type) {
       case 'setpoint': {
         const g = this.net.generators.find((x) => x.id === a.gen);
@@ -471,10 +478,20 @@ export class Simulation {
         evaluate({ type: 'setpoint', gen: g.id, delta: d }, `${d > 0 ? 'Raise' : 'Lower'} ${g.short}`, base.busLoad, gen);
       }
     }
+    // Rank: options that clear every overload first, cheapest (fewest residents darkened) first;
+    // then the rest by how far they get.
     const current = s.lines[lineId].loading;
+    const worst = (o: (typeof out)[number]) => Math.max(o.loading, o.worstOther);
+    const dark = (o: (typeof out)[number]) => (o.action.type === 'shed' ? this.zoneDef(o.action.zone).population : 0);
     return out
       .filter((o) => o.loading < current - 0.03)
-      .sort((a, b) => Math.max(a.loading, a.worstOther) - Math.max(b.loading, b.worstOther))
+      .sort((a, b) => {
+        const fa = worst(a) <= 1 ? 0 : 1;
+        const fb = worst(b) <= 1 ? 0 : 1;
+        if (fa !== fb) return fa - fb;
+        if (fa === 0 && dark(a) !== dark(b)) return dark(a) - dark(b);
+        return worst(a) - worst(b);
+      })
       .slice(0, limit);
   }
 
@@ -621,9 +638,9 @@ export class Simulation {
   private runEvents() {
     const s = this.state;
     const evs = this.scenario.events;
-    while (this.eventsDone < evs.length && evs[this.eventsDone].t <= s.time + 1e-9) {
-      this.fire(evs[this.eventsDone]);
-      this.eventsDone++;
+    while (s.internal.eventsDone < evs.length && evs[s.internal.eventsDone].t <= s.time + 1e-9) {
+      this.fire(evs[s.internal.eventsDone]);
+      s.internal.eventsDone++;
     }
   }
 
@@ -635,6 +652,7 @@ export class Simulation {
         break;
       case 'lineFault': {
         const l = s.lines[e.line];
+        delete s.known[e.line]; // any earlier investigation of this line is now out of date
         if (!l.closed || l.tripped) {
           l.faulted = e.permanent;
           l.faultCause = e.cause;
@@ -648,14 +666,13 @@ export class Simulation {
         break;
       }
       case 'demandStep': {
-        this.extraDemand[e.zone] = (this.extraDemand[e.zone] ?? 0) + e.mw;
+        s.internal.extraDemand[e.zone] = (s.internal.extraDemand[e.zone] ?? 0) + e.mw;
         this.alert('info', `${e.reason} (+${e.mw} MW).`, e.zone, `demand-${e.zone}-${e.t}`);
         break;
       }
     }
   }
 
-  private extraDemand: Record<string, number> = {};
 
   private updateTimers() {
     const s = this.state;
@@ -758,13 +775,13 @@ export class Simulation {
       const l = s.lines[target];
       if (l.faulted) return `Permanent fault (${l.faultCause}). Do not reclose: send a crew.`;
       if (l.tripped) return 'No fault found. Safe to reclose.';
-      return 'Healthy.';
+      return 'No fault found on this line.';
     }
     const parts: string[] = [];
     if (target === h.incipientFault && !s.subs[target].damaged)
       parts.push(`Dissolved-gas test shows an incipient internal fault. Above ${Math.round(INCIPIENT_THRESHOLD * 100)}% loading it will fail.`);
     if (target === h.sensorDrift.sub)
-      parts.push(`Loading sensor is drifting: it over-reads by about ${Math.round(h.sensorDrift.bias * 100)} points. True loading ${Math.round(s.subs[target].loading * 100)}%.`);
+      parts.push(`Loading sensor is drifting: it over-reads by about ${Math.round(h.sensorDrift.bias * 100)} points. The panel now shows the true loading.`);
     return parts.length ? parts.join(' ') : 'Transformer and sensors healthy.';
   }
 
@@ -774,7 +791,7 @@ export class Simulation {
     s.wind = windAt(this.scenario.windCurve, s.time);
     for (const z of this.net.zones) {
       const zs = s.zones[z.id];
-      const base = (z.load + (this.extraDemand[z.id] ?? 0)) * growth * zs.curtail;
+      const base = (z.load + (s.internal.extraDemand[z.id] ?? 0)) * growth * zs.curtail;
       zs.demand = base * (1 + zs.coldLoad);
       if (zs.coldLoad > 0) zs.coldLoad = Math.max(0, zs.coldLoad - (COLD_LOAD_MAX / COLD_LOAD_DECAY) * DT);
     }
@@ -933,6 +950,7 @@ export class Simulation {
       if (ls.heat >= 1 || L > LINE_INSTANT_TRIP) {
         ls.tripped = true;
         ls.heat = 0.5;
+        delete s.known[l.id];
         this.alert('critical', `Line ${l.id} ${l.name} tripped on overload. Its ${Math.round(Math.abs(ls.flow))} MW is shifting onto neighbouring lines.`, l.id, `trip-${l.id}-${s.tick}`);
       }
     }
@@ -965,9 +983,14 @@ export class Simulation {
       }
     }
     // under-frequency load shedding (per island frequency at the zone's substation)
+    // Stages are time-graded: after one stage operates, the next may only operate UFLS_GRADE
+    // seconds later, and only if the frequency is still below its own threshold.
+    const graded = (s.tick - s.internal.uflsLastTick) * DT >= UFLS_GRADE - 1e-9;
+    let operated = false;
     for (let stage = 1; stage <= UFLS_STAGES.length; stage++) {
       const thr = UFLS_STAGES[stage - 1];
       const shed: string[] = [];
+      const allowed = graded && !operated;
       for (const z of n.zones) {
         if (z.uflsStage !== stage) continue;
         const zs = s.zones[z.id];
@@ -976,18 +999,20 @@ export class Simulation {
         const key = `ufls-${z.id}`;
         const timerKey = `uflsT-${z.id}`;
         if (t.freq > 0 && t.freq < thr) {
-          this.uflsTimers[timerKey] = (this.uflsTimers[timerKey] ?? 0) + DT;
-          if (this.uflsTimers[timerKey] >= UFLS_DELAY - 1e-9) {
+          s.internal.uflsTimers[timerKey] = (s.internal.uflsTimers[timerKey] ?? 0) + DT;
+          if (allowed && s.internal.uflsTimers[timerKey] >= UFLS_DELAY - 1e-9) {
             zs.breaker = false;
             zs.shedBy = 'ufls';
             s.metrics.uflsShed += zs.demand;
             shed.push(z.name);
-            this.uflsTimers[timerKey] = 0;
+            s.internal.uflsTimers[timerKey] = 0;
             this.rearm(key);
           }
-        } else this.uflsTimers[timerKey] = 0;
+        } else s.internal.uflsTimers[timerKey] = 0;
       }
       if (shed.length) {
+        operated = true;
+        s.internal.uflsLastTick = s.tick;
         s.uflsStage = Math.max(s.uflsStage, stage);
         this.alert('critical', `Automatic under-frequency load shedding, stage ${stage} (${thr.toFixed(1)} Hz): ${shed.join(', ')} disconnected.`, undefined, `ufls-stage-${stage}-${s.tick}`);
       }
@@ -1028,8 +1053,6 @@ export class Simulation {
     else if (f < 50.3) this.rearm('f-high');
   }
 
-  private uflsTimers: Record<string, number> = {};
-
   private governors() {
     const s = this.state;
     for (const g of this.net.generators) {
@@ -1046,9 +1069,11 @@ export class Simulation {
         down = 1e9;
       } else {
         // droop: limited headroom upwards, generous load-rejection response downwards
-        const droop = clamp((-(gs.freq - F0) / (DROOP * F0)) * g.capacity, -0.4 * g.capacity, g.droopLimit * g.capacity);
+        // Downwards the full droop range applies (down to the unit's minimum), and over-speed
+        // control closes valves or guide vanes at up to half the rating per second.
+        const droop = clamp((-(gs.freq - F0) / (DROOP * F0)) * g.capacity, -g.capacity, g.droopLimit * g.capacity);
         target = clamp(gs.setpoint + droop, g.min, g.capacity * g.emergencyRating);
-        down = g.ramp * 6 * DT;
+        down = Math.max(g.ramp * 6, OVERSPEED_RATE * g.capacity) * DT;
       }
       gs.pm += clamp(target - gs.pm, -down, up);
     }

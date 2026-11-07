@@ -7,8 +7,9 @@ All constants live at the top of `src/sim/engine.ts`.
 ## Time
 
 - Fixed step `DT = 0.1 s`; the crisis is 900 ticks.
-- Order of work inside one tick: scenario events → player actions → timers → demand → network solution → protections → governors → critical services → metrics.
-- The engine never reads the clock or `Math.random`. Scenario variation comes from a seeded integer PRNG (mulberry32) used once, when the scenario is built. The engine uses only `+ − × ÷ √`, so the same recording gives bit-identical results in every browser.
+- Order of work inside one tick: player actions (queued during the previous tick) → scenario events → timers → demand → network solution → protections → governors → critical services → metrics.
+- All engine state, including its bookkeeping (event cursor, relay timers), lives in `SimState`, so a state snapshot resumes exactly.
+- The engine never reads the clock or `Math.random`. Scenario variation comes from a seeded integer PRNG (mulberry32) used once, when the scenario is built. The engine uses only `+ − × ÷ √` and rounding (no `Math.pow`, `exp` or trigonometry), all of which IEEE 754 defines exactly, so the same recording gives bit-identical results in every browser.
 
 ## Network
 
@@ -30,7 +31,7 @@ with `H` the inertia constant and `S` the rating of each machine (wind has a nea
 
 ## Generators
 
-- **Governors**: droop of 4% (2 Hz for 100% output). Upward response limited to 8% (gas) or 12% (hydro) of rating; downward response up to 40%, at six times the ramp rate (load rejection).
+- **Governors**: droop of 4% (2 Hz for 100% output). Upward response limited to 8% (gas) or 12% (hydro) of rating. Downward the full droop range applies, down to the unit's minimum stable output (gas 20 MW, hydro 10 MW), and over-speed control closes valves at up to 50% of rating per second, so an island left with too much generation settles instead of tripping.
 - **Ramp limits**: gas 3 MW/s, hydro 8 MW/s, wind 20 MW/s (wind follows the available-wind curve and can only curtail).
 - **Emergency rating**: the gas station may run to 110% for 25 s, then trips on exhaust over-temperature.
 - **Frequency protection**: a machine trips after 1 s below 47.5 Hz or above 52 Hz.
@@ -41,7 +42,7 @@ with `H` the inertia constant and `S` the rating of each machine (wind has a nea
 - **Transformers**: oil temperature follows `T∞ = 35 + 70·L²` °C with a 10 s time constant (accelerated for the 90-second format). Alarm at 110 °C, insulation damage above 125 °C, protection trip at 140 °C. A tripped transformer needs a crew to reset it once below 90 °C. Health reaching zero destroys it.
 - **Incipient fault** (hidden, one transformer per seed): above 70% loading a fault-progress counter rises at `(L − 0.7)/6` per second. At 0.35 a gas-in-oil (Buchholz) alarm appears; at 1 the transformer is destroyed. Investigation reveals it.
 - **Lying sensor** (hidden, one substation per seed): the displayed loading over-reads by 50 to 70 points. The temperature reading is honest, so an attentive operator can spot it; investigation confirms it.
-- **Under-frequency load shedding (UFLS)**: stage 1 at 49.0 Hz, stage 2 at 48.7 Hz, stage 3 at 48.4 Hz, after 0.3 s. Hospitals, the data centre, emergency services and industry are not in the scheme; operators can exempt up to three further zones.
+- **Under-frequency load shedding (UFLS)**: stage 1 at 49.0 Hz, stage 2 at 48.7 Hz, stage 3 at 48.4 Hz, each after 0.3 s below its threshold. Stages are time-graded: after one stage operates, the next can operate only 0.2 s later and only if the frequency is still below its own threshold, so a fast dip does not dump all three stages in one instant. Hospitals, the data centre, emergency services and industry are not in the scheme; operators can exempt up to three further zones.
 
 ## Demand
 
@@ -65,7 +66,13 @@ Substation voltage is a proxy: `V = 1 − 0.07·L²` of transformer loading.
 
 ## Crews, investigation and the mobile generator
 
-Two crews start at the depot and drive at 9 map units per second (storm conditions), then work 6 to 10 s. One analyst investigates one asset at a time (4 s). One 8 MW mobile generator can be sent once.
+Two crews start at the depot and drive at 9 map units per second (storm conditions), then work 6 to 10 s. One analyst investigates one asset at a time (4 s); a line's finding is withdrawn if the line trips again later. One 8 MW mobile generator can be sent once.
+
+A shift accepts at most 400 decisions, so every recording fits in a challenge link.
+
+## Where the difficulty comes from
+
+The gas station is in the west and most of the load that loses wind supply is in the north and east. When the wind farm shuts down, the replacement power has to cross the west-to-east lines L6, L9 and L12. Freeing power in the west (curtailing the industrial district, running the data centre on its own generators) fixes the frequency but pushes more power east over those lines. Raising the eastern hydro dam, or cutting load in the east, helps both. Grid analysis on any overloaded line evaluates each single action with the same flow model.
 
 ## Scoring
 

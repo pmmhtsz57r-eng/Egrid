@@ -21,7 +21,7 @@ export function Landing(p: Props) {
           <div className="challenge-banner">
             <div className="cb-kicker">CHALLENGE RECEIVED</div>
             <div className="cb-text">
-              <b>{p.challenge.name || 'An operator'}</b> kept Nova City at <b className="accent">{p.challenge.score}%</b> stability ({p.challenge.grade}) in storm #{p.challenge.seed}.
+              <b>{p.challenge.name || 'An operator'}</b> scored <b className="accent">{p.challenge.score}/100</b> city stability ({p.challenge.grade}) in storm #{p.challenge.seed}.
             </div>
             <button className="cta small" onClick={p.onAcceptChallenge}>Take the same storm</button>
           </div>
@@ -73,7 +73,7 @@ export function Briefing({ onGo, count }: { onGo: () => void; count: number }) {
           <li><b>Stop overloads</b> before protection trips them and the load cascades.</li>
           <li><b>Protect</b> the hospitals, Railway R02, the 112 data centre and emergency services.</li>
         </ul>
-        <p className="muted">Tap anything on the map or in <b>Most urgent</b> to act. The clock does not stop.</p>
+        <p className="muted">Tap anything on the map or in <b>Most urgent</b> to act. The clock only stops if you pause, and pausing hides the city.</p>
         <div className="count">{count > 0 ? count : 'GO'}</div>
         <p className="skip">tap to start now</p>
       </div>

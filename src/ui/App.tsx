@@ -58,7 +58,7 @@ export function App() {
   const selectedRef = useRef<string | null>(null);
   const screenRef = useRef<Screen>('landing');
 
-  const stored = store.get();
+  const [stored] = useState(() => store.get());
   const [screen, setScreenState] = useState<Screen>('landing');
   const [, setVersion] = useState(0);
   const [selected, setSelectedState] = useState<string | null>(null);
@@ -75,6 +75,16 @@ export function App() {
   const [run, setRun] = useState<{ seed: number; mode: GameMode }>({ seed: 0, mode: 'crisis' });
   const [glError, setGlError] = useState(false);
   const today = dailySeed(new Date());
+
+  // a challenge link pasted into an already open tab
+  useEffect(() => {
+    const onHash = () => {
+      const c = readChallenge();
+      if (c && screenRef.current === 'landing') setRival(c);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const setScreen = (s: Screen) => {
     screenRef.current = s;
@@ -201,9 +211,10 @@ export function App() {
       if (a.level === 'critical' && a.subject) city.current?.attention(a.subject);
     };
     g.onEnd = () => finish(g);
-    // ?speed=N plays the same deterministic incident faster (for testing and demos)
-    const sp = Number(new URLSearchParams(location.search).get('speed'));
-    if (sp > 0 && sp <= 20) g.speed = sp;
+    // ?speed=N plays the same deterministic incident faster (for testing and demos).
+    // Only speeding up is allowed: slow motion would be an advantage.
+    const sp = Math.floor(Number(new URLSearchParams(location.search).get('speed')));
+    if (sp >= 1 && sp <= 8) g.speed = sp;
     setScreen('playing');
     audio.current.startMusic();
     g.start();
@@ -341,7 +352,14 @@ export function App() {
           />
           {g.paused && (
             <div className="pause" onClick={togglePause}>
-              <div><h2>PAUSED</h2><p>The city is hidden while paused. Tap to resume.</p></div>
+              <div>
+                <h2>PAUSED</h2>
+                <p>The city is hidden while paused. Tap to resume.</p>
+                <label className="pause-vol" onClick={(e) => e.stopPropagation()}>
+                  <span>Volume</span>
+                  <input type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} aria-label="Volume" onChange={(e) => { const v = Number(e.target.value); setVolumeState(v); setMutedState(v === 0); }} />
+                </label>
+              </div>
             </div>
           )}
         </>

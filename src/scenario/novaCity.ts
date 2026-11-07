@@ -34,7 +34,7 @@ export const NOVA_CITY: NetworkDef = {
   generators: [
     {
       id: 'G1', name: 'Harbour Gas Station', short: 'Harbour Gas', kind: 'gas', bus: 'G1',
-      capacity: 190, min: 70, emergencyRating: 1.1, overloadSeconds: 25, ramp: 3,
+      capacity: 190, min: 20, emergencyRating: 1.1, overloadSeconds: 25, ramp: 3,
       inertiaH: 5, droopLimit: 0.08, initial: 150, pos: [-118, 18],
     },
     {
