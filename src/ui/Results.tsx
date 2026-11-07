@@ -122,7 +122,7 @@ export function Results(p: Props) {
               <div className="idle">
                 <b>If nobody had touched the controls:</b> {r.idle.collapsed ? `total blackout at ${Math.floor(r.idle.collapseTime / 60)}:${String(Math.floor(r.idle.collapseTime % 60)).padStart(2, '0')}` : `${r.idle.stability}% stability (${r.idle.grade})`}
                 {r.idle.critical.filter((c) => !c.protected).length > 0 && `, ${r.idle.critical.filter((c) => !c.protected).map((c) => c.name).join(' and ')} would have lost power`}.
-                {' '}You {o.stability >= r.idle.stability ? `did ${o.stability - r.idle.stability} points better` : `did ${r.idle.stability - o.stability} points worse`}.
+                {' '}{o.stability === r.idle.stability ? 'Your shift ended exactly where doing nothing would have.' : o.stability > r.idle.stability ? `You did ${o.stability - r.idle.stability} points better.` : `You did ${r.idle.stability - o.stability} points worse.`}
               </div>
             </>
           )}

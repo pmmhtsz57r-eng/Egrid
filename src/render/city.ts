@@ -609,7 +609,7 @@ export class CityRenderer {
     this.mode = mode;
     this.controls.autoRotate = mode !== 'play';
     this.controls.autoRotateSpeed = mode === 'landing' ? 0.35 : 0.2;
-    if (mode === 'play') this.focus(new THREE.Vector3(0, 0, 5), 230, 0.95);
+    if (mode === 'play') this.focus(new THREE.Vector3(0, 0, 5), 275, 0.92);
     if (mode === 'landing') this.focus(new THREE.Vector3(0, 0, 0), 290, 0.95);
   }
 

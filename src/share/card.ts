@@ -150,10 +150,10 @@ function drawSkyline(g: CanvasRenderingContext2D, powered: number, accent: strin
   const base = 1350;
   let x = -10;
   g.save();
-  g.globalAlpha = 0.5;
+  g.globalAlpha = 0.32;
   while (x < CARD_W + 10) {
     const w = 30 + r() * 60;
-    const h = 60 + r() * r() * 300;
+    const h = 40 + r() * r() * 170;
     g.fillStyle = '#0a1020';
     g.fillRect(x, base - h, w, h);
     for (let wy = base - h + 10; wy < base - 8; wy += 14) {
@@ -167,7 +167,7 @@ function drawSkyline(g: CanvasRenderingContext2D, powered: number, accent: strin
   }
   g.restore();
   g.fillStyle = hexA(accent, 0.05);
-  g.fillRect(0, base - 340, CARD_W, 340);
+  g.fillRect(0, base - 210, CARD_W, 210);
 }
 
 function drawTrace(g: CanvasRenderingContext2D, tl: { t: number; freq: number }[], x: number, y: number, w: number, h: number, accent: string) {

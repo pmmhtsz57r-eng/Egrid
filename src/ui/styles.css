@@ -156,8 +156,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
 .urgent li b { font-size: 13px; }
 .urgent li span { font-size: 12px; color: var(--muted); line-height: 1.35; }
 .feed { flex: 1; min-height: 80px; overflow: hidden; display: flex; flex-direction: column; }
-.feed ul { overflow-y: auto; flex: 1; gap: 4px; mask-image: linear-gradient(180deg, #000 70%, transparent); }
-.feed li { display: grid; grid-template-columns: 34px 12px 1fr; gap: 6px; font-size: 12px; line-height: 1.35; color: var(--muted); cursor: pointer; animation: feedin 0.35s ease-out; }
+.feed ul { overflow-y: auto; flex: 1; gap: 5px; min-height: 0; }
+.feed li { display: grid; grid-template-columns: 34px 12px 1fr; gap: 6px; font-size: 12px; line-height: 1.35; color: var(--muted); cursor: pointer; }
+.feed li:first-child { animation: feedin 0.35s ease-out both; }
 .feed li time { font: 500 10px var(--mono); color: var(--dim); padding-top: 2px; }
 .feed li i { font-style: normal; font-size: 9px; padding-top: 2px; }
 .feed li.critical { color: #ffd6da; }
@@ -166,7 +167,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outlin
 .feed li.warning i { color: var(--warn); }
 .feed li.success i { color: var(--good); }
 .feed li.info i { color: var(--ok); }
-@keyframes feedin { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes feedin { from { opacity: 0.2; transform: translateX(-8px); } }
 .assets { display: none; }
 
 .asset { overflow-y: auto; max-height: 100%; }

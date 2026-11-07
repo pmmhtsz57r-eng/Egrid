@@ -31,7 +31,7 @@ export function Hud(p: Props) {
   const fcls = freq <= 0 ? 'dead' : freq < 49.2 || freq > 50.8 ? 'crit' : freq < 49.7 || freq > 50.3 ? 'warn' : 'ok';
   const needle = Math.max(-1, Math.min(1, (freq - 50) / 1.5));
   const crit = sim.net.zones.filter((z) => z.critical);
-  const alerts = s.alerts.slice(-40).reverse();
+  const alerts = s.alerts.slice(-14).reverse();
 
   return (
     <div className={`hud ${p.selected ? 'has-sel' : ''}`}>
